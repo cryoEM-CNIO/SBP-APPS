@@ -33,20 +33,20 @@
 <title>Template</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563EB'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='sans-serif' font-weight='700' fill='white'>T</text></svg>">
 
-<link rel="stylesheet" href="../shared/style.css?v=20260916-0001">
+<link rel="stylesheet" href="../shared/style.css?v=20260916-0810">
 </head>
 <body>
 <div id="app"></div>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 
 <!-- Shared helpers. Remove if unused. -->
-<script src="../shared/utils.js?v=20260916-0001"></script>
+<script src="../shared/utils.js?v=20260916-0810"></script>
 
 <script>
 // ─── app config ─────────────────────────────────────────────────────────────
 const APP_ID    = "template";   // ← matches the folder name and the APPS registry id
 const APP_TITLE = "Template";   // ← displayed in the header
-const BUILD     = "20260916-0001"; // ← bump on every deploy
+const BUILD     = "20260916-0810"; // ← bump on every deploy
 
 // ─── state ──────────────────────────────────────────────────────────────────
 // Put your application state here. Keep it in a single object so it is easy
@@ -61,7 +61,7 @@ let state = {
 function render() {
   const app = SBP.el("app");
   let h = "<div class='wrap'>"
-    + "<a class='back' href='../'>" + SBP.ICON.back + " SBP Apps</a>"
+    + "<a class='back' href='../../'>" + SBP.ICON.back + " SBP Apps</a>"
     + "<div class='hdr'>"
     + "<div><h1>" + SBP.esc(APP_TITLE) + "</h1>"
     + "<div class='hdr-date'>" + new Date().toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long"}) + "</div></div>"
