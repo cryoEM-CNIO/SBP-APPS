@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F7F6F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
+<meta name="robots" content="noindex, nofollow">
+
+<!--
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  SBP Apps — template                                                    │
+  │                                                                         │
+  │  GETTING STARTED                                                        │
+  │  1. Copy this folder and rename it (e.g. "particle-picker/").           │
+  │  2. Edit the <title> and the favicon letter/colour below.               │
+  │  3. Add your app id to APPS in the root index.html (set live:true).     │
+  │  4. Write your app code in the <script> block at the bottom.            │
+  │                                                                         │
+  │  DATA                                                                   │
+  │  Apps are stateless — load data from a file or URL each session.        │
+  │  Nothing is stored in this repo. Optional: use SBP.storage() to         │
+  │  remember small per-user preferences in localStorage.                  │
+  │                                                                         │
+  │  SHARED ASSETS                                                          │
+  │  ../shared/style.css  — design tokens, components (cards, buttons…)    │
+  │  ../shared/utils.js   — file reading, CSV parsing, download helpers     │
+  │  Bump the ?v= cache-buster when either file changes.                    │
+  └─────────────────────────────────────────────────────────────────────────┘
+-->
+
+<!-- Change the letter and fill colour to something that represents your app -->
+<title>Template</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563EB'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='sans-serif' font-weight='700' fill='white'>T</text></svg>">
+
+<link rel="stylesheet" href="../shared/style.css?v=20260916-0001">
+</head>
+<body>
+<div id="app"></div>
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+
+<!-- Shared helpers. Remove if unused. -->
+<script src="../shared/utils.js?v=20260916-0001"></script>
+
+<script>
+// ─── app config ─────────────────────────────────────────────────────────────
+const APP_ID    = "template";   // ← matches the folder name and the APPS registry id
+const APP_TITLE = "Template";   // ← displayed in the header
+const BUILD     = "20260916-0001"; // ← bump on every deploy
+
+// ─── state ──────────────────────────────────────────────────────────────────
+// Put your application state here. Keep it in a single object so it is easy
+// to inspect and reset.
+let state = {
+  view: "load",   // "load" | "ready" | "error"
+  data: null,
+  error: null
+};
+
+// ─── render ──────────────────────────────────────────────────────────────────
+function render() {
+  const app = SBP.el("app");
+  let h = "<div class='wrap'>"
+    + "<a class='back' href='../'>" + SBP.ICON.back + " SBP Apps</a>"
+    + "<div class='hdr'>"
+    + "<div><h1>" + SBP.esc(APP_TITLE) + "</h1>"
+    + "<div class='hdr-date'>" + new Date().toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long"}) + "</div></div>"
+    + "</div>";
+
+  if (state.view === "load") {
+    // ── File/data loading view ────────────────────────────────────────────
+    // Replace this with whatever input your app needs:
+    // file upload, URL input, paste, etc.
+    h += "<div class='center'>"
+      + "<h2>Load your data</h2>"
+      + "<p>Select a CSV file to get started. Data stays in your browser and is never uploaded anywhere.</p>"
+      + "<div class='dropzone' id='dz'>"
+      + SBP.ICON.upload
+      + "<div style='margin-top:10px;font-size:13px'>Drop a CSV file here, or click to browse</div>"
+      + "<div style='margin-top:4px;font-size:11px;color:var(--text-3)'>Accepts .csv, .tsv</div>"
+      + "</div>"
+      + (state.error ? "<div class='ebox' style='margin-top:12px'>" + SBP.esc(state.error) + "</div>" : "")
+      + "</div>";
+
+  } else if (state.view === "ready") {
+    // ── Main app view ─────────────────────────────────────────────────────
+    // Replace with your actual content.
+    const rows = state.data;
+    h += "<div class='banner good' style='margin-bottom:12px'>"
+      + SBP.ICON.check
+      + "<span>" + rows.length + " rows loaded</span>"
+      + "<button class='btn' style='margin-left:auto' onclick='resetData()'>Load new file</button>"
+      + "</div>";
+
+    // Example: render data as a table
+    if (rows.length) {
+      const cols = Object.keys(rows[0]);
+      h += "<div class='tbl-wrap'><table class='tbl'>"
+        + "<thead><tr>" + cols.map(c => "<th>" + SBP.esc(c) + "</th>").join("") + "</tr></thead>"
+        + "<tbody>"
+        + rows.slice(0, 50).map(r =>
+            "<tr>" + cols.map(c => "<td>" + SBP.esc(r[c]) + "</td>").join("") + "</tr>"
+          ).join("")
+        + "</tbody></table></div>";
+      if (rows.length > 50) h += "<p style='font-size:11px;color:var(--text-3);margin-top:6px'>Showing 50 of " + rows.length + " rows.</p>";
+    }
+
+  } else if (state.view === "error") {
+    h += "<div class='center'>"
+      + "<h2>Something went wrong</h2>"
+      + "<div class='ebox'>" + SBP.esc(state.error) + "</div>"
+      + "<div class='pbtns'><button class='btn btn-p' onclick='resetData()'>Try again</button></div>"
+      + "</div>";
+  }
+
+  h += "<div class='foot'><span class='build'>build " + BUILD + "</span></div>";
+  h += "</div>"; // .wrap
+
+  app.innerHTML = h;
+
+  // Attach the drop zone after the HTML is in the DOM
+  if (state.view === "load") {
+    SBP.dropzone(SBP.el("dz"), {
+      accept: ".csv,.tsv,text/csv,text/tab-separated-values",
+      onFiles: handleFiles
+    });
+  }
+}
+
+// ─── handlers ────────────────────────────────────────────────────────────────
+async function handleFiles(files) {
+  const file = files[0];
+  if (!file) return;
+  try {
+    const text = await SBP.readFile(file);
+    const sep = file.name.endsWith(".tsv") ? "\t" : ",";
+    state.data  = SBP.parseCSV(text, { sep });
+    state.view  = "ready";
+    state.error = null;
+  } catch (e) {
+    state.error = e.message;
+    state.view  = "error";
+  }
+  render();
+}
+
+function resetData() {
+  state = { view:"load", data:null, error:null };
+  render();
+}
+
+// ─── boot ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>

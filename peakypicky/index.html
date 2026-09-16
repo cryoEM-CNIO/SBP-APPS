@@ -1,0 +1,2908 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeakyPicky — chromatogram figures</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23215E93'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='sans-serif' font-weight='700' fill='white'>P</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
+<style>
+  :root{
+    --paper:#F7F6F2;
+    --panel:#FFFFFF;
+    --ink:#171A1C;
+    --ink-soft:#5B615F;
+    --line:#D9DAD3;
+    --line-soft:#E9E9E4;
+    --accent1:#215E93;
+    --accent2:#B1542E;
+    --accent3:#5B7A46;
+    --accent4:#8A5A9E;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "IBM Plex Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    height:100vh;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  header{
+    padding:18px 28px;
+    border-bottom:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(23,26,28,0.03);
+    display:flex;
+    align-items:center;
+    gap:12px;
+    position:relative;
+  }
+  header::after{
+    content:"";
+    position:absolute;
+    left:0; right:0; bottom:-1px;
+    height:2px;
+    background:linear-gradient(90deg, var(--accent1) 0%, var(--accent1) 64px, transparent 64px);
+  }
+  header .mark{
+    width:42px;height:42px;flex:none;
+  }
+  header .wordmark{
+    display:flex;
+    align-items:baseline;
+    gap:0;
+    margin:0;
+  }
+  header h1{
+    font-family:var(--mono);
+    font-size:17px;
+    font-weight:700;
+    letter-spacing:0.01em;
+    margin:0;
+    display:flex;
+  }
+  header h1 .b1{color:var(--ink);}
+  header h1 .b2{color:var(--accent1);}
+  header .divider{
+    width:1px;
+    align-self:stretch;
+    background:var(--line);
+    margin:0 2px;
+  }
+  header .tagline{
+    font-size:12px;
+    color:var(--ink-soft);
+    font-family:var(--sans);
+    letter-spacing:0.01em;
+  }
+  .layout{
+    flex:1;
+    display:flex;
+    min-height:0;
+  }
+  .rail{
+    width:320px;
+    flex:none;
+    border-right:1px solid var(--line);
+    background:var(--panel);
+    overflow-y:auto;
+    padding:18px 18px 40px;
+  }
+  .stage{
+    flex:1;
+    overflow:auto;
+    padding:28px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:16px;
+  }
+  section.block{
+    margin-bottom:22px;
+  }
+  section.block:last-child{margin-bottom:0;}
+  .block h2{
+    font-family:var(--mono);
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--ink-soft);
+    margin:0 0 10px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .block h2::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--line-soft);
+  }
+
+  .dropzone{
+    border:1.5px dashed var(--line);
+    border-radius:3px;
+    padding:22px 14px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--accent1);
+    background:#EFF4F8;
+  }
+  .dropzone strong{
+    display:block;
+    color:var(--ink);
+    font-size:13px;
+    margin-bottom:4px;
+  }
+  .dropzone input{display:none;}
+  .loaded-file{
+    margin-top:10px;
+    font-family:var(--mono);
+    font-size:11.5px;
+    background:var(--paper);
+    border:1px solid var(--line-soft);
+    border-radius:3px;
+    padding:8px 10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+  }
+  .loaded-file button{
+    background:none;border:none;color:var(--accent2);
+    cursor:pointer;font-family:var(--mono);font-size:11px;
+    text-decoration:underline;padding:0;
+  }
+  .run-group{
+    margin-bottom:4px;
+  }
+  .run-header{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-top:12px;
+    margin-bottom:2px;
+  }
+  .run-header:first-child{margin-top:0;}
+  .run-header input.run-name{
+    flex:1;
+    font-family:var(--mono);
+    font-size:11px;
+    font-weight:700;
+    border:none;
+    background:none;
+    color:var(--ink);
+    padding:2px 0;
+    border-bottom:1px dotted transparent;
+  }
+  .run-header input.run-name:hover, .run-header input.run-name:focus{
+    border-bottom:1px dotted var(--line);
+    outline:none;
+  }
+  .run-header .run-offset{
+    width:56px;
+    font-family:var(--mono);
+    font-size:10px;
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:2px 3px;
+  }
+  .run-header .run-remove{
+    background:none;border:none;color:var(--ink-soft);cursor:pointer;
+    font-size:13px;line-height:1;padding:0 2px;
+  }
+  .run-header .run-remove:hover{color:var(--accent2);}
+  .run-offset-label{
+    font-family:var(--mono);
+    font-size:9.5px;
+    color:var(--ink-soft);
+  }
+
+  .peak-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:var(--mono);
+    font-size:10.5px;
+    padding:2px 0;
+  }
+  .peak-row.is-hidden{
+    opacity:0.4;
+  }
+  .peak-row .peak-label{
+    flex:1;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .peak-row .peak-toggle{
+    background:none;
+    border:none;
+    color:var(--ink-soft);
+    cursor:pointer;
+    font-family:var(--mono);
+    font-size:10.5px;
+    padding:0 2px;
+    text-decoration:underline;
+  }
+  .peak-row .peak-toggle:hover{color:var(--accent2);}
+  .peak-row.is-hidden .peak-toggle:hover{color:var(--accent1);}
+
+  .curve-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 0;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .curve-row:last-child{border-bottom:none;}
+  .curve-row input[type=checkbox]{accent-color:var(--accent1); cursor:pointer;}
+  .curve-row .swatch{
+    width:14px;height:14px;border-radius:50%;border:none;cursor:pointer;padding:0;flex:none;
+  }
+  .curve-row input.cname{
+    flex:1;
+    min-width:0;
+    font-size:12px;
+    font-family:var(--mono);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    border:none;
+    background:none;
+    color:var(--ink);
+    padding:2px 2px;
+    border-bottom:1px dotted transparent;
+  }
+  .curve-row input.cname:hover, .curve-row input.cname:focus{
+    border-bottom:1px dotted var(--line);
+    outline:none;
+  }
+  details.other-curves{
+    margin-top:2px;
+  }
+  details.other-curves summary{
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--ink-soft);
+    cursor:pointer;
+    padding:6px 0;
+    list-style:none;
+    user-select:none;
+  }
+  details.other-curves summary::-webkit-details-marker{display:none;}
+  details.other-curves summary::before{
+    content:"▸ ";
+    display:inline-block;
+  }
+  details.other-curves[open] summary::before{
+    content:"▾ ";
+  }
+  details.other-curves summary:hover{color:var(--ink);}
+  .curve-row select{
+    font-size:10.5px;
+    font-family:var(--mono);
+    border:1px solid var(--line);
+    border-radius:2px;
+    background:var(--panel);
+    padding:2px 3px;
+  }
+  .empty-note{
+    font-size:12px;
+    color:var(--ink-soft);
+    font-style:italic;
+  }
+
+  label.field{
+    display:block;
+    font-size:11px;
+    font-family:var(--mono);
+    color:var(--ink-soft);
+    margin:10px 0 4px;
+  }
+  label.field:first-child{margin-top:0;}
+  .field input[type=text], .field input[type=number], .field input[type=file], .field select{
+    width:100%;
+    font-family:var(--sans);
+    font-size:12.5px;
+    padding:6px 8px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:var(--panel);
+    color:var(--ink);
+  }
+  .row2{display:flex; gap:8px;}
+  .row2 > div{flex:1;}
+  .row2.range-row > div{flex:0 0 auto;}
+  .range-row input[type=number]{
+    width:92px;
+    font-family:var(--sans);
+    font-size:12.5px;
+    padding:6px 8px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    background:var(--panel);
+    color:var(--ink);
+  }
+
+  .toggle-line{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:12.5px;
+    padding:5px 0;
+    cursor:pointer;
+    user-select:none;
+  }
+  .toggle-line input{accent-color:var(--accent1); cursor:pointer;}
+
+  input[type=range]{width:100%; accent-color:var(--accent1);}
+
+  .exportbar{
+    position:sticky;
+    bottom:-40px;
+    display:flex;
+    gap:8px;
+    margin-top:6px;
+  }
+  button.primary, button.secondary{
+    flex:1;
+    font-family:var(--mono);
+    font-size:11.5px;
+    padding:10px 8px;
+    border-radius:3px;
+    cursor:pointer;
+    letter-spacing:0.03em;
+  }
+  button.primary{
+    background:var(--ink);
+    color:var(--paper);
+    border:1px solid var(--ink);
+  }
+  button.primary:hover{background:#000;}
+  button.secondary{
+    background:var(--panel);
+    color:var(--ink);
+    border:1px solid var(--line);
+  }
+  button.secondary:hover{border-color:var(--ink);}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    box-shadow:0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.03);
+    padding:18px;
+    position:relative;
+    max-width:100%;
+  }
+  .card svg{display:block; max-width:100%; height:auto;}
+  .card.placeholder-card{
+    border:none;
+    box-shadow:none;
+    background:transparent;
+    padding:0;
+  }
+  .placeholder{
+    color:var(--ink-soft);
+    font-family:var(--sans);
+    font-size:13px;
+    line-height:1.6;
+    text-align:center;
+    padding:96px 44px;
+    max-width:440px;
+  }
+  .placeholder .big{
+    width:44px;
+    height:44px;
+    margin:0 auto 18px;
+    opacity:0.85;
+  }
+  .placeholder .big svg{width:100%;height:100%;display:block;}
+  .placeholder .lead{
+    font-family:var(--mono);
+    font-size:14px;
+    font-weight:600;
+    color:var(--ink);
+    letter-spacing:0.01em;
+    margin-bottom:10px;
+  }
+  .placeholder code{
+    font-family:var(--mono);
+    color:var(--ink);
+    background:var(--paper);
+    border:1px solid var(--line-soft);
+    border-radius:2px;
+    padding:1px 4px;
+  }
+  .readout{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--ink-soft);
+    min-height:16px;
+  }
+
+  .lane-list{
+    max-height:240px;
+    overflow-y:auto;
+    margin-top:6px;
+    border-top:1px solid var(--line-soft);
+  }
+  .lane-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:var(--mono);
+    font-size:10.5px;
+    padding:4px 0;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .lane-row .lane-idx{
+    width:16px;
+    flex:none;
+    color:var(--ink-soft);
+    text-align:right;
+  }
+  .lane-row .lane-band-note{
+    flex:none;
+    color:var(--accent1);
+    font-size:9.5px;
+    white-space:nowrap;
+  }
+  .lane-row select,
+  .lane-row input[type="text"]{
+    flex:1;
+    min-width:0;
+    font-size:10.5px;
+    font-family:var(--mono);
+    border:1px solid var(--line);
+    border-radius:2px;
+    background:var(--panel);
+    color:var(--ink);
+    padding:3px 4px;
+  }
+  .lane-row select.lane-run{
+    flex:0 0 54px;
+    width:54px;
+    padding:3px 2px;
+  }
+  button.btn-mini{
+    width:100%;
+    font-family:var(--mono);
+    font-size:11px;
+    padding:7px 8px;
+    border-radius:3px;
+    cursor:pointer;
+    background:var(--panel);
+    color:var(--ink);
+    border:1px solid var(--line);
+    margin-top:8px;
+  }
+  button.btn-mini:hover{border-color:var(--ink);}
+
+  ::-webkit-scrollbar{width:9px; height:9px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="../" style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--ink-soft);text-decoration:none;flex-shrink:0;margin-right:6px;padding:3px 7px;border:1px solid var(--line);border-radius:5px;background:none;" title="SBP Apps hub">‹ SBP Apps</a>
+  <svg class="mark" viewBox="0 0 24 24" fill="none">
+    <path d="M1 19 C 5 19, 6 19, 8 15 C 10 10, 11 4, 13 4 C 15 4, 15 12, 17 16 C 18.5 19, 20 19, 23 19" stroke="#215E93" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="15.5" cy="7.5" r="3.4" fill="none" stroke="#B1542E" stroke-width="1.4"/>
+    <line x1="17.9" y1="9.9" x2="20.2" y2="12.2" stroke="#B1542E" stroke-width="1.4" stroke-linecap="round"/>
+  </svg>
+  <h1 class="wordmark"><span class="b1">Peaky</span><span class="b2">Picky</span></h1>
+  <span class="divider"></span>
+  <span class="tagline">Publication-ready chromatogram &amp; gel figures from ÄKTA / UNICORN exports</span>
+  <span style="margin-left:auto;font-size:10px;color:var(--ink-soft);opacity:.55;font-variant-numeric:tabular-nums;flex-shrink:0;">build 20260916-0730</span>
+</header>
+
+<div class="layout">
+  <aside class="rail">
+
+    <section class="block">
+      <h2>Runs</h2>
+      <div class="dropzone" id="dropzone">
+        <strong id="dropzoneTitle">Drop export here</strong>
+        <span id="dropzoneSub">drag a .zip export, or the .Xml + curve files together — click to browse</span>
+        <input type="file" id="fileInput" multiple>
+      </div>
+      <div id="runsList"></div>
+      <label class="field" style="margin-top:10px;">Reopen a previous session
+        <input type="file" id="importFileInput" accept=".html,.htm">
+      </label>
+      <span class="run-offset-label" style="display:block; margin-top:2px;">Pick an "HTML slide" file this app exported earlier — it carries the full chromatogram, gel, and lane data, so everything reloads exactly as you left it.</span>
+    </section>
+
+    <section class="block" id="curvesBlock" style="display:none;">
+      <h2>Curves</h2>
+      <div id="curveList"></div>
+    </section>
+
+    <section class="block" id="annotBlock" style="display:none;">
+      <h2>Annotations</h2>
+      <label class="toggle-line"><input type="checkbox" id="showPeaks"> Peak markers</label>
+      <div id="peakSourceWrap" style="display:none; margin:2px 0 4px 22px;">
+        <select id="peakSource" style="font-family:var(--mono); font-size:10.5px; border:1px solid var(--line); border-radius:2px; background:var(--panel); padding:3px 4px; width:100%;"></select>
+      </div>
+      <div id="peakListWrap" style="display:none; margin:2px 0 8px 22px;">
+        <div id="peakList" style="display:flex; flex-direction:column; gap:2px;"></div>
+      </div>
+      <label class="toggle-line"><input type="checkbox" id="showFractions"> Fraction ticks</label>
+      <div id="fractionSourceWrap" style="display:none; margin:2px 0 6px 22px;">
+        <select id="fractionSource" style="font-family:var(--mono); font-size:10.5px; border:1px solid var(--line); border-radius:2px; background:var(--panel); padding:3px 4px; width:100%;"></select>
+      </div>
+      <label class="toggle-line"><input type="checkbox" id="useCV"> X axis in column volumes (CV)</label>
+      <label class="toggle-line"><input type="checkbox" id="zeroInjection" checked> Zero volume at injection</label>
+    </section>
+
+    <section class="block" id="labelsBlock" style="display:none;">
+      <h2>Labels</h2>
+      <label class="field">Title
+        <input type="text" id="titleInput" placeholder="Figure title (optional)">
+      </label>
+      <label class="field">Left axis label
+        <input type="text" id="leftLabel">
+      </label>
+      <label class="field">Right axis label
+        <input type="text" id="rightLabel">
+      </label>
+      <label class="field">X axis label
+        <input type="text" id="xLabel">
+      </label>
+    </section>
+
+    <section class="block" id="axisRangeBlock" style="display:none;">
+      <h2>Axis range</h2>
+      <label class="field">X axis (min / max)</label>
+      <div class="row2 range-row">
+        <div><input type="number" id="xMin" placeholder="auto" step="any"></div>
+        <div><input type="number" id="xMax" placeholder="auto" step="any"></div>
+      </div>
+      <label class="field">Left axis (min / max)</label>
+      <div class="row2 range-row">
+        <div><input type="number" id="yLeftMin" placeholder="auto" step="any"></div>
+        <div><input type="number" id="yLeftMax" placeholder="auto" step="any"></div>
+      </div>
+      <label class="field">Right axis (min / max)</label>
+      <div class="row2 range-row">
+        <div><input type="number" id="yRightMin" placeholder="auto" step="any"></div>
+        <div><input type="number" id="yRightMax" placeholder="auto" step="any"></div>
+      </div>
+    </section>
+
+    <section class="block" id="styleBlock" style="display:none;">
+      <h2>Style</h2>
+      <label class="field">Line width: <span id="lwVal">1.0</span> pt</label>
+      <input type="range" id="lineWidth" min="0.6" max="3" step="0.1" value="1.0">
+      <label class="toggle-line" style="margin-top:8px;"><input type="checkbox" id="showGrid" checked> Gridlines</label>
+      <label class="toggle-line"><input type="checkbox" id="showLegend" checked> Legend</label>
+    </section>
+
+    <section class="block" id="gelBlock" style="display:none;">
+      <h2>Gel (SDS-PAGE)</h2>
+      <div class="dropzone" id="gelDropzone">
+        <strong id="gelDropzoneTitle">Drop gel image here</strong>
+        <span id="gelDropzoneSub">a photo or scan of the stained gel — click to browse</span>
+        <input type="file" id="gelFileInput" accept="image/*">
+      </div>
+      <div id="gelControls" style="display:none;">
+        <canvas id="gelPreviewCanvas" style="width:100%; display:block; margin-top:10px; border:1px solid var(--line); border-radius:3px; touch-action:none; cursor:default;"></canvas>
+        <span class="run-offset-label" style="display:block; margin-top:6px;">Drag a blue divider to resize the lanes on either side of it — handy when lanes on the photo aren't evenly spaced.</span>
+        <button class="btn-mini" id="gelResetLaneWidths">Reset lane widths</button>
+        <label class="field">Lanes</label>
+        <input type="number" id="gelLaneCount" min="1" max="40" value="15">
+        <label class="field">Crop — left / right (%)</label>
+        <div class="row2">
+          <div><input type="number" id="gelCropL" min="0" max="49" value="2"></div>
+          <div><input type="number" id="gelCropR" min="0" max="49" value="2"></div>
+        </div>
+        <label class="field">Crop — top / bottom (%)</label>
+        <div class="row2">
+          <div><input type="number" id="gelCropT" min="0" max="49" value="5"></div>
+          <div><input type="number" id="gelCropB" min="0" max="49" value="5"></div>
+        </div>
+        <label class="field">Ladder standard
+          <select id="gelLadderPreset">
+            <option value="pageRuler">Page Ruler Broad Range</option>
+            <option value="psu">PSU Prot ladder</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </label>
+        <label class="field">Sizes, kDa (top → bottom)
+          <input type="text" id="gelLadderValues" value="250,150,100,75,50,37,25,20,15,10">
+        </label>
+        <label class="field">Detection sensitivity: <span id="gelSensVal">6</span></label>
+        <input type="range" id="gelSensitivity" min="1" max="10" step="1" value="6">
+        <button class="btn-mini" id="gelDetectBands">Auto-detect ladder bands</button>
+        <label class="toggle-line"><input type="checkbox" id="gelShowLadderLabels" checked> Ladder MW labels</label>
+        <label class="toggle-line"><input type="checkbox" id="gelHideLadderLane"> Hide ladder lane image</label>
+        <label class="field">Marker label position
+          <select id="gelMarkerSide">
+            <option value="left" selected>Left of gel</option>
+            <option value="right">Right of gel</option>
+          </select>
+        </label>
+        <label class="field" id="gelRunSourceWrap" style="display:none;">Auto-assign from run
+          <select id="gelRunSource"></select>
+        </label>
+        <button class="btn-mini" id="gelAutoAssign">Auto-assign lanes → fractions</button>
+        <div class="lane-list" id="gelLaneList"></div>
+        <span class="run-offset-label" style="display:block; margin-top:6px;">Click lanes/fractions to highlight them together — shift-click to select a range. With multiple runs loaded, each lane gets its own run picker (border tinted to that run's UV280 color) so lanes from different overlaid chromatograms can sit side by side, labeled in matching colors.</span>
+        <button class="btn-mini" id="gelClearSelection" style="margin-top:4px;">Clear highlighted lanes</button>
+        <label class="toggle-line" style="margin-top:8px;"><input type="checkbox" id="gelFlipX"> Flip image horizontally (mirror x-axis)</label>
+        <label class="toggle-line" style="margin-top:8px;"><input type="checkbox" id="gelShowGel" checked> Show gel beside chromatogram</label>
+        <label class="toggle-line"><input type="checkbox" id="gelShowLabels" checked> Lane labels</label>
+        <label class="toggle-line"><input type="checkbox" id="gelShowDividers" checked> Show lane dividers</label>
+        <label class="field">Gel title (optional)
+          <input type="text" id="gelTitle" placeholder="e.g. SDS-PAGE, reducing">
+        </label>
+        <label class="field">Notes below gel (optional)
+          <textarea id="gelNotes" rows="2" placeholder="e.g. 12% acrylamide, Coomassie stain" style="width:100%; resize:vertical; font-family:var(--sans); font-size:12.5px; padding:6px 8px; border:1px solid var(--line); border-radius:3px; background:var(--panel); color:var(--ink);"></textarea>
+        </label>
+        <label class="field">Max gel width (mm)
+          <input type="number" id="gelPanelWidth" value="100" min="15" max="200">
+        </label>
+      </div>
+    </section>
+
+    <section class="block" id="exportBlock" style="display:none;">
+      <h2>Export size</h2>
+      <label class="field">Preset
+        <select id="sizePreset">
+          <option value="85x60">Single column — 85 × 60 mm</option>
+          <option value="114x80">1.5 column — 114 × 80 mm</option>
+          <option value="180x110" selected>Double column — 180 × 110 mm</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+      <div class="row2">
+        <div>
+          <label class="field">Width (mm)</label>
+          <input type="number" id="wMm" value="180" min="30" max="400">
+        </div>
+        <div>
+          <label class="field">Height (mm)</label>
+          <input type="number" id="hMm" value="110" min="20" max="400">
+        </div>
+      </div>
+      <label class="field">Raster resolution (PNG)
+        <select id="dpiSelect">
+          <option value="150">150 dpi — screen/draft</option>
+          <option value="300" selected>300 dpi — journal standard</option>
+          <option value="600">600 dpi — print / line art</option>
+        </select>
+      </label>
+      <div class="exportbar">
+        <button class="secondary" id="btnSvg">Download SVG</button>
+        <button class="secondary" id="btnHtml">Download HTML slide</button>
+        <button class="primary" id="btnPng">Download PNG</button>
+      </div>
+    </section>
+
+  </aside>
+
+  <main class="stage" id="stage">
+    <div class="card placeholder-card" id="placeholderCard">
+      <div class="placeholder">
+        <div class="big">
+          <svg viewBox="0 0 44 44" fill="none">
+            <path d="M2 34 C 9 34, 11 34, 15 27 C 19 18, 20 7, 23 7 C 26 7, 26 21, 30 29 C 33 34, 36 34, 42 34" stroke="#215E93" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="27" cy="13" r="6" fill="none" stroke="#B1542E" stroke-width="2"/>
+            <line x1="31.2" y1="17.2" x2="35.5" y2="21.5" stroke="#B1542E" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="lead">Drop a UNICORN chromatogram export to begin</div>
+        PeakyPicky reads the exported <code>.Xml</code> metadata together with the raw
+        <code>Chrom.N_x_True</code> curve files, decodes the point data, and renders
+        a clean, editable, publication-ready trace.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+
+// ─── SBP App identity ────────────────────────────────────────────────────────
+const APP_ID    = "peakypicky";
+const APP_TITLE = "PeakyPicky";
+const BUILD     = "20260916-0730";
+
+const COLORS = ['#215E93','#B1542E','#5B7A46','#8A5A9E','#946200','#3D6B6B','#C23B5A','#3E7C8C'];
+
+// well-plate style fraction labels (e.g. "1.A1", "1.C.11"), shared by the fraction-tick
+// renderer and the gel lane-assignment UI so both agree on what counts as a fraction.
+const isFractionLabel = text => /^\d+\.[A-Za-z]\.?\d+$/.test((text||'').trim());
+
+let state = {
+  runs: [],          // {id, label, xOffset, chromatogramName}
+  curves: [],         // {runId, name, curveNumber, x, y, xUnit, yUnit, color, axis, selected, columnVolume, peaks, events}
+  nextRunId: 0,
+  gel: {
+    loaded:false, dataUrl:null, img:null, natW:0, natH:0,
+    laneCount:15,
+    flipX:false,        // mirror the source image left-right before cropping/preview
+    cropL:2, cropR:2, cropT:5, cropB:5,
+    ladderValues:'250,150,100,75,50,37,25,20,15,10',
+    bandSensitivity:6,  // 1 (strict) - 10 (sensitive), controls the auto-detect threshold
+    showLadderLabels:true,
+    hideLadderLane:false, // hide the ladder lane's own image but still show its MW tick labels
+    markerSide:'left',  // 'left' | 'right' — which side of the gel panel the MW ladder labels are drawn on
+    ladderBands:{},     // laneIndex -> [{y (0..1 within crop height), kDa}], from auto-detect
+    lanes:[],           // {assign:'skip'|'ladder'|'fraction', fractionIdx}
+    laneBoundaries:null, // array of length laneCount+1, normalized 0..1 positions across the cropped width — lets lanes be manually resized instead of always equal-width
+    sourceRunId:null,
+    panelWidthMm:100,
+    title:'', notes:'', // optional caption text drawn above/below the gel panel in the figure
+    showGel:true, showLaneLabels:true, showDividers:true, // showDividers: draw the thin cell outline/background between lanes
+    selectedLanes:[],  // indices into lanes[], for click-to-highlight linkage with the chromatogram (multi-select)
+    lastClickedLane:null, // for shift-click range selection
+    laneImages:[]       // cached cropped-lane {url,w,h}, index-aligned with lanes
+  }
+};
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+['dragenter','dragover'].forEach(evt=>{
+  dropzone.addEventListener(evt, e=>{e.preventDefault(); dropzone.classList.add('drag');});
+});
+['dragleave','drop'].forEach(evt=>{
+  dropzone.addEventListener(evt, e=>{e.preventDefault(); dropzone.classList.remove('drag');});
+});
+dropzone.addEventListener('drop', e=>{
+  const files = Array.from(e.dataTransfer.files);
+  if(files.length) handleFiles(files);
+});
+dropzone.addEventListener('click', ()=>fileInput.click());
+fileInput.addEventListener('change', e=>{
+  const files = Array.from(e.target.files);
+  if(files.length) handleFiles(files);
+  fileInput.value = '';
+});
+
+async function handleFiles(files){
+  const sub = document.getElementById('dropzoneSub');
+  const prevSub = sub.textContent;
+  sub.textContent = 'Reading…';
+  try{
+    // Each zip is its own run (UNICORN's default export filenames, e.g. Chrom_1.Xml /
+    // Chrom.1_1_True, are identical across different experiments — merging two zips'
+    // entries into one map would silently clobber the first run's files). Loose files
+    // dropped together (an unzipped export folder) still combine into a single run.
+    const looseFiles = [];
+    for(const f of files){
+      if(/\.zip$/i.test(f.name)){
+        const buf = await f.arrayBuffer();
+        const zip = await JSZip.loadAsync(buf);
+        const zipMap = {};
+        for(const path of Object.keys(zip.files)){
+          const entry = zip.files[path];
+          if(entry.dir) continue;
+          const data = await entry.async('uint8array');
+          const base = path.split('/').pop();
+          zipMap[base.toLowerCase()] = {name: base, data};
+        }
+        addRun(zipMap, f.name.replace(/\.zip$/i,''));
+      } else {
+        looseFiles.push(f);
+      }
+    }
+    if(looseFiles.length){
+      const fileMap = {};
+      for(const f of looseFiles){
+        const buf = new Uint8Array(await f.arrayBuffer());
+        fileMap[f.name.toLowerCase()] = {name: f.name, data: buf};
+      }
+      const xmlFile = looseFiles.find(f=>/\.xml$/i.test(f.name));
+      addRun(fileMap, xmlFile ? xmlFile.name.replace(/\.xml$/i,'') : null);
+    }
+    sub.textContent = prevSub;
+  }catch(err){
+    console.error(err);
+    sub.textContent = 'Could not read that — '+err.message;
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------- XML metadata parsing ----------
+
+function addRun(fileMap, uploadedFileLabel){
+  const xmlEntry = Object.values(fileMap).find(f=>/\.xml$/i.test(f.name));
+  if(!xmlEntry){
+    const looksLikeImage = Object.values(fileMap).some(f=>/\.(png|jpe?g|tif{1,2}|bmp|gif|webp)$/i.test(f.name));
+    if(looksLikeImage){
+      alert('That looks like an image file. This box is for the chromatogram export (.zip or .Xml + curve files).\n\nTo add a gel photo, use the separate "Gel (SDS-PAGE)" panel further down the left rail (it appears once a chromatogram is loaded).');
+    } else {
+      alert('No .Xml metadata file found in that drop.');
+    }
+    return;
+  }
+  const xmlText = new TextDecoder('utf-8').decode(xmlEntry.data);
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if(doc.querySelector('parsererror')){
+    alert('Could not parse the .Xml file.');
+    return;
+  }
+
+  const runId = state.nextRunId++;
+  // Label the run after the file the person actually uploaded (zip name, or the loose
+  // .Xml's name) rather than the internal ChromatogramName metadata, so it's recognizable.
+  const chromatogramName = uploadedFileLabel || textOf(doc.documentElement, 'ChromatogramName') || xmlEntry.name.replace(/\.xml$/i,'');
+
+  const curveNodes = Array.from(doc.querySelectorAll('Curves > Curve'));
+  const newCurves = [];
+  // Each run starts its own walk through the color palette (offset by how many runs
+  // are already loaded), so the default-visible curve of every newly overlaid
+  // chromatogram gets a distinct color instead of always starting from the same one.
+  const runColorOffset = state.runs.length;
+  let localColorIdx = 0;
+
+  for(const node of curveNodes){
+    const name = textOf(node,'Name') || ('Curve '+(newCurves.length+1));
+    const curveNumber = textOf(node,':scope > CurveNumber');
+    const amplitudeUnit = textOf(node,'AmplitudeUnit') || '';
+    const volumeUnit = textOf(node,'VolumeUnit') || '';
+    const timeUnit = textOf(node,'TimeUnit') || '';
+    const distBetween = parseFloat(textOf(node,'DistanceBetweenPoints'));
+    const distStart = parseFloat(textOf(node,'DistanceToStartPoint'));
+    const columnVolume = parseFloat(textOf(node,'ColumnVolume'));
+    const binName = node.querySelector('CurvePoints CurvePoint BinaryCurvePointsFileName');
+    const binFileName = binName ? binName.textContent.trim() : null;
+
+    if(!binFileName) continue;
+    const entry = fileMap[binFileName.toLowerCase()];
+    if(!entry) continue; // this curve's binary file wasn't in the drop
+
+    let decoded;
+    try{
+      decoded = decodeCurveFile(entry.data);
+    }catch(err){
+      console.warn('failed to decode', binFileName, err);
+      continue;
+    }
+    if(!decoded || !decoded.y || !decoded.y.length) continue;
+
+    let x = decoded.x;
+    let xUnit = decoded.xUnit;
+    if(!x){
+      // fall back to evenly spaced axis from metadata
+      const n = decoded.y.length;
+      x = new Float64Array(n);
+      const step = isFinite(distBetween) ? distBetween : 1;
+      const start = isFinite(distStart) ? distStart : 0;
+      for(let i=0;i<n;i++) x[i] = start + i*step;
+      xUnit = volumeUnit || timeUnit || '';
+    }
+
+    // try to match this curve's default styling to an equivalent curve from an earlier run,
+    // so overlaying a second run lines its matching channels up automatically. Otherwise,
+    // default only UV 280 nm on — everything else starts off until the person opts in.
+    const label = curveDisplayLabelRaw(name);
+    const match = state.curves.find(c => curveDisplayLabelRaw(c.name) === label && c.axis !== 'off');
+    const isPrimaryChannel = label === 'UV 280 nm' || label === 'UV 260 nm';
+    const isDefaultSelected = label === 'UV 280 nm';
+    const axis = match ? match.axis : (isPrimaryChannel ? 'left' : 'off');
+    const selected = match ? match.selected : isDefaultSelected;
+    const color = COLORS[(runColorOffset + localColorIdx) % COLORS.length];
+    localColorIdx++;
+
+    newCurves.push({
+      runId, name, curveNumber, x, y: decoded.y,
+      xUnit: xUnit || volumeUnit || timeUnit || '',
+      yUnit: amplitudeUnit,
+      columnVolume: isFinite(columnVolume) ? columnVolume : null,
+      color, axis, selected,
+      dashed: label === 'UV 260 nm', // UV260 renders as a dashed line matching UV280's color
+      label: curveDisplayLabelRaw(name), // editable legend text — defaults to the channel name
+      peaks: []
+    });
+  }
+
+  // UV260 defaults to the same color as its sibling UV280 in this run (distinguished by dash instead)
+  const uv280InRun = newCurves.find(c=>curveDisplayLabel(c)==='UV 280 nm');
+  if(uv280InRun){
+    newCurves.forEach(c=>{ if(c.dashed) c.color = uv280InRun.color; });
+  }
+
+  // peak tables
+  const peakTables = Array.from(doc.querySelectorAll('PeakTables > PeakTable'));
+  for(const pt of peakTables){
+    const dcNode = pt.querySelector('DataCurve > CurveNumber');
+    const cn = dcNode ? dcNode.textContent.trim() : null;
+    const curve = newCurves.find(c=>c.curveNumber===cn);
+    if(!curve) continue;
+    // UNICORN reports peak retention relative to the injection point (not the raw
+    // recording start) whenever this tag is present — our curve's own x-data is
+    // always in raw/absolute coordinates, so we need to add the injection volume
+    // back on when positioning these peaks against the curve.
+    curve.peaksZeroAdjustedToInjection = pt.querySelector('ZeroAdjustedToInjectionNumber') !== null;
+    const peakNodes = Array.from(pt.querySelectorAll('Peaks > Peak'));
+    for(const pk of peakNodes){
+      const ret = parseFloat(textOf(pk,'MaxPeakRetention'));
+      const height = parseFloat(textOf(pk,'Height'));
+      const nm = textOf(pk,'Name') || '';
+      if(isFinite(ret)) curve.peaks.push({retention: ret, height: isFinite(height)?height:null, name: nm, hidden: false});
+    }
+  }
+
+  // events / fractions
+  const events = [];
+  const eventNodes = Array.from(doc.querySelectorAll('Events > Event'));
+  for(const ev of eventNodes){
+    const vol = parseFloat(textOf(ev,'EventVolume'));
+    const txt = textOf(ev,'EventText') || '';
+    if(isFinite(vol) && txt) events.push({volume: vol, text: txt});
+  }
+
+  if(!newCurves.length){
+    alert('Found the metadata, but none of the referenced curve files (e.g. Chrom.1_1_True) were in this drop.');
+    return;
+  }
+
+  if(state.curves.length===0 && !newCurves.some(c=>c.selected)){
+    const def = pickDefaultUvCurve(newCurves) || newCurves[0];
+    def.selected = true;
+    def.axis = 'left';
+  }
+
+  state.runs.push({id: runId, label: chromatogramName, xOffset: 0, events, injectionVolume: findInjectionVolume(events)});
+  state.curves.push(...newCurves);
+
+  const first = state.runs.length===1;
+  buildRunsList();
+  buildCurveList();
+  ['curvesBlock','annotBlock','labelsBlock','axisRangeBlock','styleBlock','gelBlock','exportBlock'].forEach(id=>{
+    document.getElementById(id).style.display = 'block';
+  });
+  document.getElementById('dropzoneTitle').textContent = 'Drop another run to overlay';
+  if(first){
+    document.getElementById('xLabel').value = axisLabelFor(newCurves[0]);
+    document.getElementById('leftLabel').value = leftLabelDefault();
+    document.getElementById('rightLabel').value = '';
+    // titleInput intentionally left blank by default — user can type their own.
+  }
+  render();
+}
+
+function removeRun(runId){
+  state.runs = state.runs.filter(r=>r.id!==runId);
+  state.curves = state.curves.filter(c=>c.runId!==runId);
+  if(!state.runs.length){
+    document.getElementById('dropzoneTitle').textContent = 'Drop export here';
+  }
+  buildRunsList();
+  buildCurveList();
+  render();
+}
+
+function textOf(node, tag){
+  const el = node.querySelector(tag);
+  return el ? el.textContent.trim() : '';
+}
+
+function axisLabelFor(curve){
+  const unit = document.getElementById('useCV') && document.getElementById('useCV').checked
+    ? 'CV' : (curve.xUnit || '');
+  return 'Volume ('+ (unit||'?') +')';
+}
+
+// Turns a curve name like "UV 1_280" into the conventional "UV 280 nm" label.
+// Finds the volume of the injection event, if present, so the trace can be
+// re-zeroed at the point sample actually enters the system.
+function findInjectionVolume(events){
+  const priorities = [
+    e => e.text === 'Injection valve Inject (Completed)',
+    e => /inject/i.test(e.text) && /completed/i.test(e.text) && !/load/i.test(e.text),
+    e => /inject/i.test(e.text) && !/load/i.test(e.text)
+  ];
+  for(const test of priorities){
+    const found = events.find(test);
+    if(found) return found.volume;
+  }
+  return null;
+}
+
+function curveDisplayLabelRaw(name){
+  const m = name.match(/^UV\s*\d+_(\d{2,4})$/i);
+  if(m) return 'UV ' + m[1] + ' nm';
+  return name;
+}
+function curveDisplayLabel(curve){ return curveDisplayLabelRaw(curve.name); }
+
+// Picks which curve should be shown by default when a file has no curve already
+// selected. Real absorbance channels are strongly preferred over whatever else the
+// export happens to list first (which can be an instrument diagnostic/system curve,
+// e.g. one with a name like "UV_CUT_TEMP@100,BASEM (1)" that isn't sample data at all).
+function pickDefaultUvCurve(curves){
+  let c = curves.find(c=>curveDisplayLabelRaw(c.name)==='UV 280 nm');
+  if(c) return c;
+  c = curves.find(c=>curveDisplayLabelRaw(c.name)==='UV 260 nm');
+  if(c) return c;
+  c = curves.find(c=>c.name.trim().toUpperCase()==='UV');
+  if(c) return c;
+  return null;
+}
+
+function leftLabelDefault(){
+  const leftCurves = state.curves.filter(c=>c.axis==='left' && c.selected);
+  if(!leftCurves.length) return '';
+  if(leftCurves.length===1){
+    const c = leftCurves[0];
+    return curveDisplayLabel(c) + (c.yUnit ? ' ('+c.yUnit+')' : '');
+  }
+  const units = [...new Set(leftCurves.map(c=>c.yUnit).filter(Boolean))];
+  return units.length===1 ? units[0] : 'Response';
+}
+
+function defaultTitle(){
+  const first = state.curves.find(c=>c.selected) || state.curves[0];
+  const run = first ? state.runs.find(r=>r.id===first.runId) : null;
+  if(!first) return '';
+  return (run?run.label:'') + (first ? ' \u2013 ' + curveDisplayLabel(first) : '');
+}
+
+// ---------- binary curve file decoding ----------
+
+function findAllSig(bytes){
+  const out = [];
+  const a=0x50,b=0x4b,c=0x03,d=0x04;
+  for(let i=0;i<=bytes.length-4;i++){
+    if(bytes[i]===a && bytes[i+1]===b && bytes[i+2]===c && bytes[i+3]===d) out.push(i);
+  }
+  return out;
+}
+
+function decodeCurveFile(bytes){
+  const offsets = findAllSig(bytes);
+  if(!offsets.length) throw new Error('not a recognised curve container');
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const entries = {};
+  for(let i=0;i<offsets.length;i++){
+    const pos = offsets[i];
+    const fnameLen = dv.getUint16(pos+26, true);
+    const extraLen = dv.getUint16(pos+28, true);
+    const name = new TextDecoder('utf-8').decode(bytes.slice(pos+30, pos+30+fnameLen));
+    const dataStart = pos+30+fnameLen+extraLen;
+    const dataEnd = (i+1<offsets.length) ? offsets[i+1] : bytes.length;
+    const chunk = bytes.slice(dataStart, dataEnd);
+    let inflated;
+    try{ inflated = pako.inflateRaw(chunk); }
+    catch(e){ continue; }
+    entries[name] = parseNRBF(inflated);
+  }
+
+  let yArr=null, yEntryName=null, xArr=null, xUnit=null;
+  for(const [name, val] of Object.entries(entries)){
+    if(!val || !val.arr) continue;
+    const lower = name.toLowerCase();
+    if(lower.includes('amplitude')) { yArr = val.arr; yEntryName = name; }
+    else if(lower.includes('volume')) { xArr = val.arr; xUnit = 'mL'; }
+    else if(lower.includes('time')) { if(!xArr){ xArr = val.arr; xUnit = 'min'; } }
+    else if(!yArr && !lower.includes('datatype')) { yArr = val.arr; }
+  }
+  if(!yArr) return null;
+  return {y: yArr, x: xArr, xUnit};
+}
+
+function parseNRBF(u8){
+  if(u8.length < 1) return null;
+  if(u8[0] !== 0) return {text: new TextDecoder('utf-8').decode(u8)};
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let pos = 1 + 16;
+  if(pos >= u8.length) return null;
+  const recordType = u8[pos]; pos += 1;
+  if(recordType !== 15) return null; // only ArraySinglePrimitive supported
+  const length = dv.getInt32(pos+4, true);
+  const ptype = u8[pos+8];
+  const dataPos = pos+9;
+  let arr;
+  if(ptype === 11){ // Single (float32)
+    arr = new Float64Array(length);
+    for(let k=0;k<length;k++) arr[k] = dv.getFloat32(dataPos + k*4, true);
+  } else if(ptype === 6){ // Double
+    arr = new Float64Array(length);
+    for(let k=0;k<length;k++) arr[k] = dv.getFloat64(dataPos + k*8, true);
+  } else if(ptype === 8){ // Int32
+    arr = new Float64Array(length);
+    for(let k=0;k<length;k++) arr[k] = dv.getInt32(dataPos + k*4, true);
+  } else {
+    return null;
+  }
+  return {arr};
+}
+
+// ---------- runs & curve list UI ----------
+
+function buildRunsList(){
+  const box = document.getElementById('runsList');
+  box.innerHTML = '';
+  state.runs.forEach(run=>{
+    const row = document.createElement('div');
+    row.className = 'loaded-file';
+    row.innerHTML =
+      '<span>'+escapeHtml(run.label)+'</span>'+
+      '<button class="run-remove-btn" data-run="'+run.id+'">remove</button>';
+    box.appendChild(row);
+  });
+  box.querySelectorAll('.run-remove-btn').forEach(btn=>{
+    btn.addEventListener('click', e=>removeRun(+e.target.dataset.run));
+  });
+  buildFractionSourceSelect();
+  buildGelRunSourceSelect();
+  if(state.gel.loaded) buildGelLaneList();
+}
+
+function buildFractionSourceSelect(){
+  const wrap = document.getElementById('fractionSourceWrap');
+  const select = document.getElementById('fractionSource');
+  if(state.runs.length <= 1){
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+  const prevValue = select.value;
+  select.innerHTML = state.runs.map(r=>'<option value="'+r.id+'">'+escapeHtml(r.label)+'</option>').join('');
+  // keep the previous selection if that run is still loaded, else default to the first run
+  if(state.runs.some(r=>String(r.id)===prevValue)) select.value = prevValue;
+  else select.value = String(state.runs[0].id);
+}
+
+function buildCurveList(){
+  const list = document.getElementById('curveList');
+  list.innerHTML = '';
+  const multiRun = state.runs.length > 1;
+
+  state.runs.forEach(run=>{
+    const group = document.createElement('div');
+    group.className = 'run-group';
+
+    if(multiRun){
+      const header = document.createElement('div');
+      header.className = 'run-header';
+      header.innerHTML =
+        '<input type="text" class="run-name" data-run="'+run.id+'" value="'+escapeHtml(run.label)+'">'+
+        '<span class="run-offset-label">shift</span>'+
+        '<input type="number" class="run-offset" data-run="'+run.id+'" value="'+run.xOffset+'" step="0.01">'+
+        '<button class="run-remove" data-run="'+run.id+'" title="remove run">✕</button>';
+      group.appendChild(header);
+    }
+
+    const runCurves = [];
+    state.curves.forEach((c, i)=>{ if(c.runId===run.id) runCurves.push({c, i}); });
+    // Group by channel type for browsability: UV-named curves first, then Cond, then
+    // Conc B, then everything else — a stable sort so curves within the same group
+    // keep the order the file listed them in.
+    function channelRank(c){
+      const n = c.name || '';
+      if(/uv/i.test(n)) return 0;
+      if(/cond/i.test(n)) return 1;
+      if(/conc\s*b/i.test(n)) return 2;
+      return 3;
+    }
+    runCurves.sort((a,b)=>channelRank(a.c)-channelRank(b.c));
+    const primary = runCurves.filter(({c})=>{
+      const lbl = curveDisplayLabel(c);
+      return lbl === 'UV 280 nm' || lbl === 'UV 260 nm';
+    });
+    const other = runCurves.filter(x=>!primary.some(p=>p.c===x.c));
+
+    function rowHtml(c, i){
+      return '<div class="curve-row">'+
+        '<input type="checkbox" '+(c.selected?'checked':'')+' data-i="'+i+'" class="csel">'+
+        '<input type="color" class="swatch" value="'+c.color+'" data-i="'+i+'">'+
+        '<input type="text" class="cname" data-i="'+i+'" title="'+escapeHtml(c.name)+'" value="'+escapeHtml(c.label)+'">'+
+        '<select data-i="'+i+'" class="caxis">'+
+          '<option value="left" '+(c.axis==='left'?'selected':'')+'>L</option>'+
+          '<option value="right" '+(c.axis==='right'?'selected':'')+'>R</option>'+
+          '<option value="off" '+(c.axis==='off'?'selected':'')+'>–</option>'+
+        '</select>'+
+      '</div>';
+    }
+
+    primary.forEach(({c,i})=>{
+      group.insertAdjacentHTML('beforeend', rowHtml(c,i));
+    });
+
+    if(other.length){
+      const details = document.createElement('details');
+      details.className = 'other-curves';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Other curves (' + other.length + ')';
+      details.appendChild(summary);
+      other.forEach(({c,i})=>{
+        details.insertAdjacentHTML('beforeend', rowHtml(c,i));
+      });
+      group.appendChild(details);
+    }
+
+    list.appendChild(group);
+  });
+
+  list.querySelectorAll('.csel').forEach(el=>el.addEventListener('change', e=>{
+    state.curves[+e.target.dataset.i].selected = e.target.checked; render();
+  }));
+  list.querySelectorAll('input.cname').forEach(el=>el.addEventListener('input', e=>{
+    state.curves[+e.target.dataset.i].label = e.target.value; render();
+  }));
+  list.querySelectorAll('.swatch').forEach(el=>el.addEventListener('input', e=>{
+    state.curves[+e.target.dataset.i].color = e.target.value; render();
+  }));
+  list.querySelectorAll('.caxis').forEach(el=>el.addEventListener('change', e=>{
+    state.curves[+e.target.dataset.i].axis = e.target.value; render();
+  }));
+  list.querySelectorAll('.run-name').forEach(el=>el.addEventListener('input', e=>{
+    const run = state.runs.find(r=>r.id===+e.target.dataset.run);
+    if(run) run.label = e.target.value;
+    render();
+  }));
+  list.querySelectorAll('.run-offset').forEach(el=>el.addEventListener('input', e=>{
+    const run = state.runs.find(r=>r.id===+e.target.dataset.run);
+    if(run) run.xOffset = parseFloat(e.target.value) || 0;
+    render();
+  }));
+  list.querySelectorAll('.run-remove').forEach(el=>el.addEventListener('click', e=>{
+    removeRun(+e.target.dataset.run);
+  }));
+}
+
+// ---------- gel (SDS-PAGE) ----------
+
+const gelDropzone = document.getElementById('gelDropzone');
+const gelFileInput = document.getElementById('gelFileInput');
+
+['dragenter','dragover'].forEach(evt=>{
+  gelDropzone.addEventListener(evt, e=>{e.preventDefault(); gelDropzone.classList.add('drag');});
+});
+['dragleave','drop'].forEach(evt=>{
+  gelDropzone.addEventListener(evt, e=>{e.preventDefault(); gelDropzone.classList.remove('drag');});
+});
+gelDropzone.addEventListener('drop', e=>{
+  const f = e.dataTransfer.files[0];
+  if(f) loadGelImage(f);
+});
+gelDropzone.addEventListener('click', ()=>gelFileInput.click());
+gelFileInput.addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(f) loadGelImage(f);
+  gelFileInput.value = '';
+});
+
+function loadGelImage(file){
+  const isTiff = /\.tiff?$/i.test(file.name) || /^image\/tiff$/i.test(file.type);
+  const isOtherImage = /^image\//.test(file.type) && !isTiff;
+  if(!isTiff && !isOtherImage){
+    alert('Please drop an image of the gel — PNG, JPEG, or TIFF.');
+    return;
+  }
+  if(isTiff) loadGelImageTiff(file);
+  else loadGelImageStandard(file);
+}
+
+function loadGelImageStandard(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const img = new Image();
+    img.onload = ()=>finishGelImageLoad(img, reader.result);
+    img.onerror = ()=>alert('Could not read that image.');
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Browsers (other than Safari) can't display TIFF via <img>, so this decodes it with
+// UTIF.js into raw RGBA pixels, draws those onto a canvas, and re-exports as a PNG data
+// URL — from that point on it's a normal image and flows through the same pipeline.
+function loadGelImageTiff(file){
+  if(typeof UTIF === 'undefined'){
+    alert('The TIFF decoder failed to load (no internet access to its CDN?). Try converting the gel photo to PNG or JPEG and dropping that instead.');
+    return;
+  }
+  file.arrayBuffer().then(buf=>{
+    let ifds;
+    try{
+      ifds = UTIF.decode(buf);
+      UTIF.decodeImage(buf, ifds[0]);
+    }catch(err){
+      alert('Could not decode that TIFF file: '+err.message);
+      return;
+    }
+    const ifd = ifds[0];
+    const rgba = UTIF.toRGBA8(ifd);
+    const w = ifd.width, h = ifd.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.createImageData(w, h);
+    imageData.data.set(rgba);
+    ctx.putImageData(imageData, 0, 0);
+    const pngUrl = canvas.toDataURL('image/png');
+    const img = new Image();
+    img.onload = ()=>finishGelImageLoad(img, pngUrl);
+    img.onerror = ()=>alert('Decoded the TIFF but could not re-render it as an image.');
+    img.src = pngUrl;
+  }).catch(err=>alert('Could not read that file: '+err.message));
+}
+
+function finishGelImageLoad(img, dataUrl){
+  const g = state.gel;
+  g.loaded = true;
+  g.dataUrl = dataUrl;
+  g.img = img;
+  g.natW = img.naturalWidth;
+  g.natH = img.naturalHeight;
+  g.ladderBands = {};
+  if(!g.lanes.length) initGelLanes();
+  document.getElementById('gelDropzoneTitle').textContent = 'Replace gel image';
+  document.getElementById('gelControls').style.display = 'block';
+  document.getElementById('gelFlipX').checked = g.flipX;
+  buildGelRunSourceSelect();
+  buildGelLaneList();
+  recomputeGelLaneCrops();
+  drawGelPreview();
+  render();
+}
+
+function initGelLanes(){
+  const g = state.gel;
+  g.lanes = Array.from({length:g.laneCount}, ()=>(
+    {assign:'manual', fractionIdx:null, manualLabel:'', runId:g.sourceRunId}
+  ));
+  resetLaneBoundaries();
+}
+
+function resizeGelLanes(){
+  const g = state.gel;
+  const old = g.lanes;
+  const next = [];
+  for(let i=0;i<g.laneCount;i++){
+    next.push(old[i] || {assign:'manual', fractionIdx:null, manualLabel:'', runId:g.sourceRunId});
+  }
+  g.lanes = next;
+  resetLaneBoundaries();
+}
+
+// A lane's own run — each lane can be pulled from a different overlaid chromatogram
+// (so lanes from run A and run B can sit side-by-side on the same gel), falling back
+// to the panel's default "Fractions from run" selection for lanes created before this
+// per-lane assignment existed.
+function laneRunId(lane){
+  return lane.runId!=null ? lane.runId : state.gel.sourceRunId;
+}
+
+// The color a lane's label/fraction-window should be drawn in: matched to that run's
+// UV 280 nm trace so a label on the gel reads as "belonging to" the same-colored curve
+// on the chromatogram. Falls back to the plain axis ink when the run has no UV280
+// curve (or the lane isn't tied to a run at all).
+function laneLabelColor(runId, fallback){
+  if(runId==null) return fallback;
+  const c = state.curves.find(c=>c.runId===runId && curveDisplayLabel(c)==='UV 280 nm');
+  return c ? c.color : fallback;
+}
+
+// Uniform boundaries: lane i spans [i/laneCount, (i+1)/laneCount] of the cropped width.
+function resetLaneBoundaries(){
+  const g = state.gel;
+  g.laneBoundaries = Array.from({length:g.laneCount+1}, (_,i)=>i/g.laneCount);
+}
+
+function getGelFractionEvents(runId){
+  const g = state.gel;
+  const rid = runId!=null ? runId : g.sourceRunId;
+  const run = state.runs.find(r=>r.id===rid) || state.runs[0];
+  if(!run) return [];
+  return run.events.filter(ev=>isFractionLabel(ev.text)).slice().sort((a,b)=>a.volume-b.volume);
+}
+
+function buildGelRunSourceSelect(){
+  const wrap = document.getElementById('gelRunSourceWrap');
+  const select = document.getElementById('gelRunSource');
+  if(!state.runs.length){ wrap.style.display = 'none'; return; }
+  if(state.runs.length <= 1){
+    wrap.style.display = 'none';
+    state.gel.sourceRunId = state.runs[0].id;
+    return;
+  }
+  wrap.style.display = 'block';
+  const prev = select.value;
+  select.innerHTML = state.runs.map(r=>'<option value="'+r.id+'">'+escapeHtml(r.label)+'</option>').join('');
+  if(state.runs.some(r=>String(r.id)===prev)) select.value = prev;
+  else if(state.gel.sourceRunId!=null && state.runs.some(r=>r.id===state.gel.sourceRunId)) select.value = String(state.gel.sourceRunId);
+  else select.value = String(state.runs[0].id);
+  state.gel.sourceRunId = +select.value;
+}
+document.getElementById('gelRunSource').addEventListener('change', e=>{
+  state.gel.sourceRunId = +e.target.value;
+  buildGelLaneList();
+  render();
+});
+
+function buildGelLaneList(){
+  const list = document.getElementById('gelLaneList');
+  const multiRun = state.runs.length>1;
+  list.innerHTML = state.gel.lanes.map((lane,i)=>{
+    const rid = laneRunId(lane);
+    const fractionEvents = getGelFractionEvents(rid);
+    const opts = [
+      '<option value="skip"'+(lane.assign==='skip'?' selected':'')+'>— skip —</option>',
+      '<option value="ladder"'+(lane.assign==='ladder'?' selected':'')+'>Ladder / marker</option>',
+      '<option value="manual"'+(lane.assign==='manual'?' selected':'')+'>Custom label…</option>'
+    ];
+    fractionEvents.forEach((ev,fi)=>{
+      const sel = (lane.assign==='fraction' && lane.fractionIdx===fi) ? ' selected' : '';
+      opts.push('<option value="f'+fi+'"'+sel+'>'+escapeHtml(ev.text)+'</option>');
+    });
+    const showText = lane.assign==='manual';
+    const bandNote = (lane.assign==='ladder' && state.gel.ladderBands[i])
+      ? '<span class="lane-band-note">'+state.gel.ladderBands[i].length+' bands</span>' : '';
+    // Per-lane run picker — only shown once there's more than one run to overlay,
+    // since with a single run every lane obviously belongs to it. Visible regardless
+    // of the current assign state (including "— skip —") so a run can be picked
+    // *before* choosing a fraction — otherwise the picker would appear only after a
+    // fraction is chosen, then vanish the moment the run is switched (since switching
+    // runs resets the now-invalid fraction pick back to skip), which reads as broken.
+    let runSelect = '';
+    if(multiRun && lane.assign!=='ladder'){
+      const swatchColor = laneLabelColor(rid, 'var(--line)');
+      runSelect = '<select data-i="'+i+'" class="lane-run" title="Which run this lane belongs to" style="border-color:'+swatchColor+'; border-width:2px;">'+
+        state.runs.map(r=>'<option value="'+r.id+'"'+(r.id===rid?' selected':'')+'>'+escapeHtml(r.label)+'</option>').join('')+
+      '</select>';
+    }
+    return '<div class="lane-row"><span class="lane-idx">'+(i+1)+'</span>'+
+      runSelect+
+      '<select data-i="'+i+'" class="lane-assign">'+opts.join('')+'</select>'+
+      '<input type="text" data-i="'+i+'" class="lane-manual-label" placeholder="label" value="'+escapeHtml(lane.manualLabel||'')+'"'+(showText?'':' style="display:none;"')+'>'+
+      bandNote+
+    '</div>';
+  }).join('');
+  list.querySelectorAll('.lane-run').forEach(el=>el.addEventListener('change', e=>{
+    const i = +e.target.dataset.i;
+    const lane = state.gel.lanes[i];
+    lane.runId = +e.target.value;
+    // The old fraction index almost certainly doesn't line up with the new run's
+    // fraction events, so drop back to skip rather than silently mislabeling —
+    // that also makes the lane vanish from the gel instead of showing wrong data.
+    if(lane.assign==='fraction'){ lane.assign='skip'; lane.fractionIdx=null; }
+    buildGelLaneList();
+    render();
+  }));
+  list.querySelectorAll('.lane-assign').forEach(el=>el.addEventListener('change', e=>{
+    const i = +e.target.dataset.i;
+    const v = e.target.value;
+    const lane = state.gel.lanes[i];
+    if(v!=='ladder') delete state.gel.ladderBands[i];
+    if(v==='skip'){ lane.assign='skip'; lane.fractionIdx=null; }
+    else if(v==='ladder'){ lane.assign='ladder'; lane.fractionIdx=null; }
+    else if(v==='manual'){ lane.assign='manual'; lane.fractionIdx=null; if(lane.manualLabel==null) lane.manualLabel=''; if(lane.runId==null) lane.runId=state.gel.sourceRunId; }
+    else { lane.assign='fraction'; lane.fractionIdx=+v.slice(1); if(lane.runId==null) lane.runId=laneRunId(lane); }
+    const input = list.querySelector('.lane-manual-label[data-i="'+i+'"]');
+    if(input) input.style.display = (lane.assign==='manual') ? '' : 'none';
+    buildGelLaneList();
+    render();
+  }));
+  list.querySelectorAll('.lane-manual-label').forEach(el=>{
+    el.addEventListener('input', e=>{
+      const i = +e.target.dataset.i;
+      state.gel.lanes[i].manualLabel = e.target.value;
+      render();
+    });
+  });
+}
+
+document.getElementById('gelAutoAssign').addEventListener('click', ()=>{
+  // Auto-assign always pulls from the panel's default "Fractions from run" selection —
+  // for a per-run mix, auto-assign the bulk here, then hand-pick the other run(s) per
+  // lane via the row's own run selector. Lanes already marked "Ladder / marker" or
+  // "Custom label…" are left alone — mark a lane as ladder yourself first if you want
+  // auto-assign to skip past it.
+  const g = state.gel;
+  const fractionEvents = getGelFractionEvents(g.sourceRunId);
+  let fi = 0;
+  g.lanes.forEach(lane=>{
+    if(lane.assign==='manual' || lane.assign==='ladder') return;
+    lane.runId = g.sourceRunId;
+    if(fi<fractionEvents.length){ lane.assign='fraction'; lane.fractionIdx=fi; fi++; }
+    else { lane.assign='skip'; lane.fractionIdx=null; }
+  });
+  buildGelLaneList();
+  render();
+});
+
+document.getElementById('gelLaneCount').addEventListener('input', e=>{
+  state.gel.laneCount = Math.max(1, parseInt(e.target.value)||1);
+  state.gel.ladderBands = {};
+  resizeGelLanes();
+  buildGelLaneList();
+  recomputeGelLaneCrops();
+  drawGelPreview();
+  render();
+});
+document.getElementById('gelResetLaneWidths').addEventListener('click', ()=>{
+  resetLaneBoundaries();
+  recomputeGelLaneCrops();
+  drawGelPreview();
+  render();
+});
+['gelCropL','gelCropR','gelCropT','gelCropB'].forEach(id=>{
+  const key = {gelCropL:'cropL',gelCropR:'cropR',gelCropT:'cropT',gelCropB:'cropB'}[id];
+  document.getElementById(id).addEventListener('input', e=>{
+    state.gel[key] = Math.max(0, Math.min(49, parseFloat(e.target.value)||0));
+    state.gel.ladderBands = {};
+    recomputeGelLaneCrops();
+    drawGelPreview();
+    render();
+  });
+});
+document.getElementById('gelFlipX').addEventListener('change', e=>{
+  state.gel.flipX = e.target.checked;
+  recomputeGelLaneCrops();
+  drawGelPreview();
+  render();
+});
+document.getElementById('gelClearSelection').addEventListener('click', ()=>{
+  state.gel.selectedLanes = [];
+  state.gel.lastClickedLane = null;
+  render();
+});
+document.getElementById('gelShowGel').addEventListener('change', e=>{ state.gel.showGel = e.target.checked; render(); });
+document.getElementById('gelShowLabels').addEventListener('change', e=>{ state.gel.showLaneLabels = e.target.checked; render(); });
+document.getElementById('gelShowLadderLabels').addEventListener('change', e=>{ state.gel.showLadderLabels = e.target.checked; render(); });
+document.getElementById('gelHideLadderLane').addEventListener('change', e=>{ state.gel.hideLadderLane = e.target.checked; render(); });
+document.getElementById('gelMarkerSide').addEventListener('change', e=>{ state.gel.markerSide = e.target.value; render(); });
+document.getElementById('gelShowDividers').addEventListener('change', e=>{ state.gel.showDividers = e.target.checked; render(); });
+document.getElementById('gelTitle').addEventListener('input', e=>{ state.gel.title = e.target.value; render(); });
+document.getElementById('gelNotes').addEventListener('input', e=>{ state.gel.notes = e.target.value; render(); });
+document.getElementById('gelPanelWidth').addEventListener('input', e=>{
+  state.gel.panelWidthMm = Math.max(10, parseFloat(e.target.value)||100);
+  render();
+});
+
+// Named ladder standards — picking one fills the free-text sizes field below, which
+// stays editable afterward for a ladder that isn't in this short list (the dropdown
+// just falls back to "Custom…" once the text no longer matches either preset exactly).
+const LADDER_PRESETS = {
+  pageRuler: '250,150,100,75,50,37,25,20,15,10',
+  psu: '150,100,80,60,50,40,30,20,10'
+};
+function syncLadderPresetSelect(){
+  const val = document.getElementById('gelLadderValues').value.trim();
+  const match = Object.keys(LADDER_PRESETS).find(k=>LADDER_PRESETS[k]===val);
+  document.getElementById('gelLadderPreset').value = match || 'custom';
+}
+document.getElementById('gelLadderPreset').addEventListener('change', e=>{
+  if(e.target.value==='custom') return; // "Custom…" is a status, not a fill action
+  const values = LADDER_PRESETS[e.target.value];
+  document.getElementById('gelLadderValues').value = values;
+  state.gel.ladderValues = values;
+});
+document.getElementById('gelLadderValues').addEventListener('input', e=>{
+  state.gel.ladderValues = e.target.value;
+  syncLadderPresetSelect();
+});
+
+document.getElementById('gelDetectBands').addEventListener('click', ()=>{
+  const g = state.gel;
+  if(!g.loaded){ alert('Load a gel image first.'); return; }
+  const values = (document.getElementById('gelLadderValues').value||'')
+    .split(',').map(s=>parseFloat(s.trim())).filter(v=>!isNaN(v));
+  if(!values.length){
+    alert('Enter at least one ladder size in kDa, comma-separated, listed top to bottom as it runs on the gel.');
+    return;
+  }
+  const ladderLaneIdxs = g.lanes.map((lane,i)=>lane.assign==='ladder'?i:null).filter(i=>i!==null);
+  if(!ladderLaneIdxs.length){
+    alert('No lane is currently assigned as "Ladder / marker" — set one in the lane list above first.');
+    return;
+  }
+  let mismatchNote = '';
+  ladderLaneIdxs.forEach(i=>{
+    const positions = detectLadderBandPositions(i, g.bandSensitivity);
+    const n = Math.min(positions.length, values.length);
+    if(positions.length !== values.length){
+      mismatchNote += 'Lane '+(i+1)+': found '+positions.length+' band(s), '+values.length+' size(s) entered.\n';
+    }
+    g.ladderBands[i] = positions.slice(0,n).map((y,k)=>({y, kDa:values[k]}));
+  });
+  buildGelLaneList();
+  render();
+  if(mismatchNote){
+    alert('Band count didn\'t match the size list for every ladder lane:\n\n'+mismatchNote+
+      '\nLabels were matched top-to-bottom as far as they go. Try raising the sensitivity slider for faint end bands, adjusting the top/bottom crop, or editing the size list, then detect again.');
+  }
+});
+document.getElementById('gelSensitivity').addEventListener('input', e=>{
+  state.gel.bandSensitivity = +e.target.value;
+  document.getElementById('gelSensVal').textContent = e.target.value;
+});
+
+// Simple centered moving average, used both for noise smoothing and for estimating
+// a local background level.
+function movingAverage(arr, win){
+  const n = arr.length;
+  const out = new Float64Array(n);
+  for(let y=0;y<n;y++){
+    let s=0,c=0;
+    for(let k=-win;k<=win;k++){ const yy=y+k; if(yy>=0&&yy<n){ s+=arr[yy]; c++; } }
+    out[y]=s/c;
+  }
+  return out;
+}
+
+// Finds band positions within one ladder lane by scanning the cropped lane region
+// (at native image resolution) for horizontal dark stripes on a lighter background.
+// Rather than thresholding against a single global darkness level (which misses
+// faint bands on an unevenly-lit or gradient background), each row is compared to
+// a *local* background estimated from a wide moving average — so a band only has to
+// stand out from its immediate surroundings, not from the darkest band on the gel.
+// sensitivity: 1 (strict, fewer false positives) .. 10 (sensitive, catches faint bands).
+// Returns normalized y positions (0 = top of the cropped gel, 1 = bottom), sorted
+// top-to-bottom — the same convention lane crops already use, so a position maps
+// directly onto a lane cell via cell.imgY + y*cell.imgH.
+function detectLadderBandPositions(laneIndex, sensitivity){
+  const g = state.gel;
+  const src = getGelSource();
+  if(!src) return [];
+  const cropX0 = g.natW*(g.cropL/100), cropX1 = g.natW*(1-g.cropR/100);
+  const cropY0 = g.natH*(g.cropT/100), cropY1 = g.natH*(1-g.cropB/100);
+  const cropW = Math.max(1, cropX1-cropX0), cropH = Math.max(1, cropY1-cropY0);
+  if(!g.laneBoundaries || g.laneBoundaries.length!==g.laneCount+1) resetLaneBoundaries();
+  const sx0 = cropX0 + g.laneBoundaries[laneIndex]*cropW;
+  const sx1 = cropX0 + g.laneBoundaries[laneIndex+1]*cropW;
+  const laneW = Math.max(1, sx1-sx0);
+  const cw = Math.max(1, Math.round(laneW)), ch = Math.max(1, Math.round(cropH));
+  const canvas = document.createElement('canvas');
+  canvas.width = cw; canvas.height = ch;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(src, sx0, cropY0, laneW, cropH, 0, 0, cw, ch);
+  let data;
+  try{ data = ctx.getImageData(0,0,cw,ch).data; }catch(err){ return []; } // e.g. tainted canvas from a cross-origin source
+  // Per-row average grayscale intensity across the lane width.
+  const profile = new Float64Array(ch);
+  for(let y=0;y<ch;y++){
+    let sum=0;
+    for(let x=0;x<cw;x++){
+      const idx=(y*cw+x)*4;
+      sum += 0.299*data[idx]+0.587*data[idx+1]+0.114*data[idx+2];
+    }
+    profile[y]=sum/cw;
+  }
+  // Light smoothing to merge speckle noise without blurring real bands together,
+  // then a much wider average to estimate the local background each row sits on.
+  const win = Math.max(1, Math.round(ch*0.006));
+  const smooth = movingAverage(profile, win);
+  const bgWin = Math.max(win*5, Math.round(ch*0.05));
+  const background = movingAverage(smooth, bgWin);
+  const residual = new Float64Array(ch); // how much darker than local background, per row
+  let maxResidual = 0;
+  for(let y=0;y<ch;y++){
+    const r = Math.max(0, background[y]-smooth[y]);
+    residual[y]=r;
+    if(r>maxResidual) maxResidual=r;
+  }
+  if(maxResidual < 2.5) return []; // essentially flat lane — nothing detectable
+  const sens = Math.min(10, Math.max(1, sensitivity||6));
+  const thresholdFrac = 0.5 - (sens/10)*0.42; // sens=1 -> 0.458 (strict), sens=10 -> 0.08 (sensitive)
+  const threshold = maxResidual*thresholdFrac;
+  const minRunPx = Math.max(1, Math.round(ch*(0.005 - sens*0.00025)));
+  const bands = [];
+  let inBand=false, start=0;
+  for(let y=0;y<ch;y++){
+    if(residual[y]>=threshold){
+      if(!inBand){ inBand=true; start=y; }
+    } else if(inBand){
+      inBand=false;
+      if(y-start>=minRunPx) bands.push([start,y-1]);
+    }
+  }
+  if(inBand && ch-start>=minRunPx) bands.push([start,ch-1]);
+  // Centroid of each run, weighted by residual strength — pulls the position toward
+  // the densest part of the band rather than its edges.
+  return bands.map(([s,e])=>{
+    let wsum=0,sum=0;
+    for(let y=s;y<=e;y++){ const w=residual[y]; wsum+=w*y; sum+=w; }
+    const cy = sum>0 ? wsum/sum : (s+e)/2;
+    return cy/ch;
+  });
+}
+
+// Returns the image (or canvas) that should actually be drawn from — the original,
+// or a horizontally-mirrored copy of it when "flip x-axis" is on. The mirrored copy
+// is cached and only rebuilt when the source image or the flip flag changes, so
+// toggling other controls doesn't pay the redraw cost.
+function getGelSource(){
+  const g = state.gel;
+  if(!g.loaded || !g.img) return null;
+  if(!g.flipX) return g.img;
+  if(g._flipCache && g._flipCacheFor===g.dataUrl) return g._flipCache;
+  const c = document.createElement('canvas');
+  c.width = g.natW; c.height = g.natH;
+  const ctx = c.getContext('2d');
+  ctx.translate(g.natW, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(g.img, 0, 0);
+  g._flipCache = c;
+  g._flipCacheFor = g.dataUrl;
+  return c;
+}
+
+// Crops the source gel image into one small canvas per lane (equal-width slices of
+// the cropped region) and caches each as a {url,w,h} — the pixel dimensions are kept
+// so the figure can later fit each lane into its cell without distorting it, rather
+// than stretching it to fill an arbitrary box. Only needs to re-run when the image,
+// crop margins, or lane count change — not on every render().
+function recomputeGelLaneCrops(){
+  const g = state.gel;
+  if(!g.loaded || !g.img){ g.laneImages = []; return; }
+  const cropX0 = g.natW * (g.cropL/100);
+  const cropX1 = g.natW * (1 - g.cropR/100);
+  const cropY0 = g.natH * (g.cropT/100);
+  const cropY1 = g.natH * (1 - g.cropB/100);
+  const cropW = Math.max(1, cropX1-cropX0);
+  const cropH = Math.max(1, cropY1-cropY0);
+  if(!g.laneBoundaries || g.laneBoundaries.length!==g.laneCount+1) resetLaneBoundaries();
+  const images = [];
+  for(let i=0;i<g.laneCount;i++){
+    const sx0 = cropX0 + g.laneBoundaries[i]*cropW;
+    const sx1 = cropX0 + g.laneBoundaries[i+1]*cropW;
+    const laneW = Math.max(1, sx1-sx0);
+    const canvas = document.createElement('canvas');
+    const cw = Math.max(1, Math.round(laneW));
+    const ch = Math.max(1, Math.round(cropH));
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(getGelSource(), sx0, cropY0, laneW, cropH, 0, 0, cw, ch);
+    images.push({url: canvas.toDataURL('image/png'), w: cw, h: ch});
+  }
+  g.laneImages = images;
+}
+
+// Visual reference only — shows the crop rectangle and lane dividers over the
+// original photo so the person can line the margins up with the actual gel lanes.
+// The dividers between lanes are draggable (see the pointer handlers below), so this
+// also records the on-canvas geometry (gelPreviewGeom) those handlers hit-test against.
+let gelPreviewGeom = null;
+function drawGelPreview(){
+  const canvas = document.getElementById('gelPreviewCanvas');
+  const g = state.gel;
+  if(!g.loaded) return;
+  const dispW = 300;
+  const dispH = Math.round(dispW * g.natH/g.natW);
+  canvas.width = dispW; canvas.height = dispH;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,dispW,dispH);
+  ctx.drawImage(getGelSource(), 0,0,dispW,dispH);
+  const x0 = dispW*(g.cropL/100), x1 = dispW*(1-g.cropR/100);
+  const y0 = dispH*(g.cropT/100), y1 = dispH*(1-g.cropB/100);
+  gelPreviewGeom = {x0,x1,y0,y1,dispW,dispH};
+  ctx.strokeStyle = '#B1542E';
+  ctx.setLineDash([4,3]);
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x0,y0,x1-x0,y1-y0);
+  ctx.setLineDash([]);
+  if(!g.laneBoundaries || g.laneBoundaries.length!==g.laneCount+1) resetLaneBoundaries();
+  for(let i=1;i<g.laneCount;i++){
+    const dragging = gelDragBoundaryIndex===i;
+    ctx.strokeStyle = dragging ? '#215E93' : 'rgba(33,94,147,0.85)';
+    ctx.lineWidth = dragging ? 2.5 : 1;
+    const x = x0 + g.laneBoundaries[i]*(x1-x0);
+    ctx.beginPath(); ctx.moveTo(x,y0); ctx.lineTo(x,y1); ctx.stroke();
+  }
+}
+
+// ---------- dragging lane dividers on the preview canvas ----------
+// Internal boundaries (index 1..laneCount-1) can be dragged left/right to make lanes
+// unequal widths — useful when the physical lanes on the gel photo aren't evenly
+// spaced. The outer edges (0 and laneCount) stay pinned to the crop box.
+
+let gelDragBoundaryIndex = null;
+let gelDragUpdatePending = false;
+
+function gelPreviewEventX(e, canvas){
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  return (e.clientX - rect.left) * scaleX;
+}
+
+function findNearestGelBoundary(mx){
+  const g = state.gel;
+  if(!gelPreviewGeom) return null;
+  const {x0,x1} = gelPreviewGeom;
+  let best=null, bestDist=Infinity;
+  for(let i=1;i<g.laneCount;i++){
+    const lx = x0 + g.laneBoundaries[i]*(x1-x0);
+    const d = Math.abs(mx-lx);
+    if(d<bestDist){ bestDist=d; best=i; }
+  }
+  return (best!=null && bestDist<=7) ? best : null;
+}
+
+function scheduleGelDragCommit(){
+  if(gelDragUpdatePending) return;
+  gelDragUpdatePending = true;
+  requestAnimationFrame(()=>{
+    gelDragUpdatePending = false;
+    recomputeGelLaneCrops();
+    render();
+  });
+}
+
+(function setupGelDividerDrag(){
+  const canvas = document.getElementById('gelPreviewCanvas');
+  canvas.addEventListener('pointerdown', e=>{
+    const g = state.gel;
+    if(!g.loaded) return;
+    const mx = gelPreviewEventX(e, canvas);
+    const hit = findNearestGelBoundary(mx);
+    if(hit!=null){
+      gelDragBoundaryIndex = hit;
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = 'col-resize';
+      e.preventDefault();
+    }
+  });
+  canvas.addEventListener('pointermove', e=>{
+    const g = state.gel;
+    if(!g.loaded || !gelPreviewGeom) return;
+    const mx = gelPreviewEventX(e, canvas);
+    if(gelDragBoundaryIndex!=null){
+      const {x0,x1} = gelPreviewGeom;
+      const i = gelDragBoundaryIndex;
+      const minGap = Math.min(0.5/g.laneCount, 0.01);
+      const lo = g.laneBoundaries[i-1] + minGap;
+      const hi = g.laneBoundaries[i+1] - minGap;
+      let frac = (mx-x0)/(x1-x0);
+      frac = Math.max(lo, Math.min(hi, frac));
+      g.laneBoundaries[i] = frac;
+      drawGelPreview();
+      scheduleGelDragCommit();
+    } else {
+      canvas.style.cursor = findNearestGelBoundary(mx)!=null ? 'col-resize' : 'default';
+    }
+  });
+  function endGelDrag(e){
+    if(gelDragBoundaryIndex==null) return;
+    gelDragBoundaryIndex = null;
+    canvas.style.cursor = 'default';
+    recomputeGelLaneCrops();
+    drawGelPreview();
+    render();
+  }
+  canvas.addEventListener('pointerup', endGelDrag);
+  canvas.addEventListener('pointercancel', endGelDrag);
+})();
+
+// ---------- controls ----------
+
+['showPeaks','showFractions','useCV','showGrid','showLegend','zeroInjection','fractionSource','peakSource'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', render);
+});
+document.getElementById('lineWidth').addEventListener('input', e=>{
+  document.getElementById('lwVal').textContent = e.target.value;
+  render();
+});
+['titleInput','leftLabel','rightLabel','xLabel','wMm','hMm','xMin','xMax','yLeftMin','yLeftMax','yRightMin','yRightMax'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', render);
+});
+document.getElementById('sizePreset').addEventListener('change', e=>{
+  const v = e.target.value;
+  if(v==='custom') return;
+  const [w,h] = v.split('x').map(Number);
+  document.getElementById('wMm').value = w;
+  document.getElementById('hMm').value = h;
+  render();
+});
+
+// ---------- decimation ----------
+
+function decimate(x, y, targetPoints){
+  const n = x.length;
+  if(n <= targetPoints*2) return {x, y};
+  const buckets = targetPoints;
+  const outX = [], outY = [];
+  const bucketSize = n / buckets;
+  for(let b=0;b<buckets;b++){
+    const start = Math.floor(b*bucketSize);
+    const end = Math.max(start+1, Math.floor((b+1)*bucketSize));
+    let minI=start, maxI=start, minV=y[start], maxV=y[start];
+    for(let i=start;i<end && i<n;i++){
+      if(y[i]<minV){minV=y[i]; minI=i;}
+      if(y[i]>maxV){maxV=y[i]; maxI=i;}
+    }
+    if(minI<=maxI){ outX.push(x[minI]); outY.push(y[minI]); outX.push(x[maxI]); outY.push(y[maxI]); }
+    else { outX.push(x[maxI]); outY.push(y[maxI]); outX.push(x[minI]); outY.push(y[minI]); }
+  }
+  return {x: outX, y: outY};
+}
+
+function niceTicks(min, max, count){
+  if(min===max){ min-=1; max+=1; }
+  const span = max-min;
+  const rawStep = span/count;
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const norm = rawStep/mag;
+  let step;
+  if(norm<1.5) step=1*mag; else if(norm<3) step=2*mag; else if(norm<7) step=5*mag; else step=10*mag;
+  const ticks = [];
+  const start = Math.ceil(min/step)*step;
+  for(let v=start; v<=max+step*1e-6; v+=step) ticks.push(Math.round(v/step)*step);
+  return ticks;
+}
+
+function fmtNum(v){
+  if(Math.abs(v) >= 1000) return v.toFixed(0);
+  if(Math.abs(v) >= 10) return v.toFixed(1);
+  if(Math.abs(v) >= 1) return v.toFixed(2);
+  return v.toFixed(3).replace(/0+$/,'').replace(/\.$/,'');
+}
+
+// ---------- SVG rendering ----------
+
+function buildSVG(pxWidth, pxHeight, forExport){
+  const useCV = document.getElementById('useCV').checked;
+  const showGridEl = document.getElementById('showGrid').checked;
+  const showLegendEl = document.getElementById('showLegend').checked;
+  const showPeaksEl = document.getElementById('showPeaks').checked;
+  const showFractionsEl = document.getElementById('showFractions').checked;
+  const zeroInjectionEl = document.getElementById('zeroInjection').checked;
+  const lw = parseFloat(document.getElementById('lineWidth').value);
+  const title = document.getElementById('titleInput').value.trim();
+  const leftLabel = document.getElementById('leftLabel').value.trim();
+  const rightLabel = document.getElementById('rightLabel').value.trim();
+  const xLabelManual = document.getElementById('xLabel').value.trim();
+
+  // Combines a run's manual "shift" offset with the automatic injection-point
+  // zeroing (if enabled and an injection event was detected for that run).
+  function effectiveOffset(run){
+    let off = run ? (run.xOffset||0) : 0;
+    if(zeroInjectionEl && run && run.injectionVolume!=null) off -= run.injectionVolume;
+    return off;
+  }
+
+  const active = state.curves.filter(c=>c.selected && c.axis!=='off');
+  const wMmForScale = parseFloat(document.getElementById('wMm').value) || (pxWidth/3.4);
+  const scale = (pxWidth/wMmForScale) / 3.4; // 1.0 at the preview's reference density (3.4 px/mm)
+
+  const g = state.gel;
+  const gelHasLanes = g.showGel && g.loaded && g.laneImages.length===g.laneCount && g.lanes.some(l=>l.assign!=='skip');
+
+  const marginL = 58*scale, marginR = (active.some(c=>c.axis==='right') ? 58 : 22)*scale;
+  const marginT = (title?40:22)*scale, marginB = (showFractionsEl ? 76 : 42)*scale;
+  const plotW = Math.max(10, pxWidth - marginL - marginR);
+  const plotH = Math.max(10, pxHeight - marginT - marginB);
+
+  if(!active.length){
+    return {svg: '<svg xmlns="http://www.w3.org/2000/svg" width="'+pxWidth+'" height="'+pxHeight+'" viewBox="0 0 '+pxWidth+' '+pxHeight+'">'+
+      '<rect width="100%" height="100%" fill="#FFFFFF"/>'+
+      '<text x="50%" y="50%" text-anchor="middle" font-family="monospace" font-size="'+(12*scale)+'" fill="#999">select at least one curve</text></svg>',
+      outW: pxWidth, outH: pxHeight};
+  }
+
+  function curveX(c){
+    const run = state.runs.find(r=>r.id===c.runId);
+    const offset = effectiveOffset(run);
+    if(useCV && c.columnVolume) return c.x.map(v=>(v+offset)/c.columnVolume);
+    if(offset) return c.x.map(v=>v+offset);
+    return c.x;
+  }
+
+  // domains
+  // Each min/max field can be set independently — leaving one blank falls back to
+  // the auto-computed bound for that side, rather than requiring both to be filled in.
+  const xMinManual = parseFloat(document.getElementById('xMin').value);
+  const xMaxManual = parseFloat(document.getElementById('xMax').value);
+  const hasXMinManual = isFinite(xMinManual);
+  const hasXMaxManual = isFinite(xMaxManual);
+  const yLeftMinManual = parseFloat(document.getElementById('yLeftMin').value);
+  const yLeftMaxManual = parseFloat(document.getElementById('yLeftMax').value);
+  const hasYLeftMinManual = isFinite(yLeftMinManual);
+  const hasYLeftMaxManual = isFinite(yLeftMaxManual);
+  const yRightMinManual = parseFloat(document.getElementById('yRightMin').value);
+  const yRightMaxManual = parseFloat(document.getElementById('yRightMax').value);
+  const hasYRightMinManual = isFinite(yRightMinManual);
+  const hasYRightMaxManual = isFinite(yRightMaxManual);
+
+  let xmin=Infinity, xmax=-Infinity;
+  active.forEach(c=>{
+    const xs = curveX(c);
+    for(let i=0;i<xs.length;i++){ if(xs[i]<xmin)xmin=xs[i]; if(xs[i]>xmax)xmax=xs[i]; }
+  });
+  if(hasXMinManual) xmin = xMinManual;
+  if(hasXMaxManual) xmax = xMaxManual;
+  const xWindowed = hasXMinManual || hasXMaxManual; // whether the x-axis shows a restricted window of the data
+  function yDomain(axis, manualMin, manualMax, hasMin, hasMax){
+    let lo=Infinity,hi=-Infinity;
+    active.filter(c=>c.axis===axis).forEach(c=>{
+      const xs = xWindowed ? curveX(c) : null;
+      for(let i=0;i<c.y.length;i++){
+        if(xs && (xs[i]<xmin || xs[i]>xmax)) continue;
+        if(c.y[i]<lo)lo=c.y[i]; if(c.y[i]>hi)hi=c.y[i];
+      }
+    });
+    if(!isFinite(lo)){
+      if(!hasMin && !hasMax) return null;
+      lo = hasMin ? manualMin : 0; hi = hasMax ? manualMax : (hasMin ? manualMin+1 : 1);
+    }
+    const pad = (hi-lo)*0.08 || 1;
+    let domLo = lo-pad, domHi = hi+pad;
+    if(hasMin) domLo = manualMin;
+    if(hasMax) domHi = manualMax;
+    return [domLo, domHi];
+  }
+  const leftDom = yDomain('left', yLeftMinManual, yLeftMaxManual, hasYLeftMinManual, hasYLeftMaxManual);
+  const rightDom = yDomain('right', yRightMinManual, yRightMaxManual, hasYRightMinManual, hasYRightMaxManual);
+
+  const sx = v => marginL + (v-xmin)/(xmax-xmin||1)*plotW;
+  const syLeft = leftDom ? (v => marginT + plotH - (v-leftDom[0])/(leftDom[1]-leftDom[0])*plotH) : null;
+  const syRight = rightDom ? (v => marginT + plotH - (v-rightDom[0])/(rightDom[1]-rightDom[0])*plotH) : null;
+
+  const xTicks = niceTicks(xmin, xmax, 6);
+  const leftTicks = leftDom ? niceTicks(leftDom[0], leftDom[1], 5) : [];
+  const rightTicks = rightDom ? niceTicks(rightDom[0], rightDom[1], 5) : [];
+
+  // ---- gel panel geometry: a strip of undistorted lane images to the right of the
+  // plot, in lane order. Width is fixed (user-set); each lane is fit (not stretched)
+  // into its cell, preserving its native aspect ratio. Separately, for lanes assigned
+  // to a fraction, we still compute the volume window it was collected over — not to
+  // size the image, but so a click on that lane (or on that window on the trace) can
+  // highlight the other side.
+  let gelInfo = null;
+  if(gelHasLanes){
+    // Each lane resolves its own run (defaulting to the panel's "Fractions from run"
+    // pick for lanes that never got one), so a single gel can carry fraction lanes
+    // collected from several different overlaid chromatograms — each drawing its
+    // volume window in that run's own coordinate space and labeled in that run's
+    // UV280 color.
+    const runCtxCache = {};
+    function runCtx(runId){
+      if(runCtxCache[runId]) return runCtxCache[runId];
+      const run = state.runs.find(r=>r.id===runId);
+      const fractionEvents = getGelFractionEvents(runId);
+      const repCurve = run ? state.curves.find(c=>c.runId===run.id) : null;
+      const xConv = (run && useCV && repCurve && repCurve.columnVolume) ? repCurve.columnVolume : null;
+      const offset = run ? effectiveOffset(run) : 0;
+      const toX = vol => { let xv = vol+offset; if(xConv) xv = xv/xConv; return sx(xv); };
+      const avgSpacing = fractionEvents.length>1
+        ? (fractionEvents[fractionEvents.length-1].volume-fractionEvents[0].volume)/(fractionEvents.length-1)
+        : 1;
+      const ctx = {run, fractionEvents, toX, avgSpacing};
+      runCtxCache[runId] = ctx;
+      return ctx;
+    }
+
+    const displayLanes = [];
+    g.lanes.forEach((lane,i)=>{
+      if(lane.assign==='skip') return;
+      if(lane.assign==='ladder' && g.hideLadderLane) return; // keep MW ticks, drop the lane image itself
+      let label, band = null, runId = null;
+      if(lane.assign==='ladder'){
+        label = 'Ladder';
+      } else if(lane.assign==='manual'){
+        label = (lane.manualLabel && lane.manualLabel.trim()) ? lane.manualLabel.trim() : ('lane '+(i+1));
+        runId = laneRunId(lane);
+      } else {
+        runId = laneRunId(lane);
+        const {fractionEvents, toX, avgSpacing} = runCtx(runId);
+        const ev = fractionEvents[lane.fractionIdx];
+        if(!ev) return;
+        label = ev.text;
+        const fi = lane.fractionIdx;
+        const startVol = ev.volume;
+        const endVol = (fi+1<fractionEvents.length) ? fractionEvents[fi+1].volume
+          : (startVol + (fi>0 ? (ev.volume-fractionEvents[fi-1].volume) : avgSpacing));
+        const X1 = toX(startVol), X2 = toX(endVol);
+        const lo = Math.max(Math.min(X1,X2), marginL), hi = Math.min(Math.max(X1,X2), marginL+plotW);
+        if(hi>lo) band = {x: lo, w: hi-lo};
+      }
+      displayLanes.push({i, img: g.laneImages[i], label, band, runId});
+    });
+
+    if(displayLanes.length){
+      const showLadderMW = g.showLadderLabels && g.lanes.some((lane,li)=>lane.assign==='ladder' && g.ladderBands[li] && g.ladderBands[li].length);
+      const markerOnRight = g.markerSide === 'right';
+      // Space is reserved for the MW ticks+numbers on whichever side they'll actually
+      // be drawn on: between the plot and the gel when on the left (as before), or
+      // after the gel panel when the person has moved them to the right of it.
+      const gapPx = (showLadderMW && !markerOnRight ? 46 : 20)*scale;
+      const gapPxRight = (showLadderMW && markerOnRight) ? 46*scale : 0;
+      const gelLabelSpace = g.showLaneLabels ? 34*scale : 0; // room for rotated labels above the gel
+      // Optional caption text: a single title line above the gel (above the lane
+      // labels), and one or more note lines below it — reserved as extra vertical
+      // space carved out of the same plot height the gel already centers within,
+      // rather than growing the overall figure.
+      const gelTitleText = (g.title||'').trim();
+      const gelTitleSpace = gelTitleText ? 16*scale : 0;
+      const noteLines = (g.notes||'').split('\n').map(l=>l.trim()).filter(l=>l.length);
+      const noteLineH = 12*scale;
+      const gelNotesSpace = noteLines.length ? (noteLines.length*noteLineH + 6*scale) : 0;
+      const gelTop0 = marginT + gelTitleSpace + gelLabelSpace;
+      const targetH = plotH - gelTitleSpace - gelLabelSpace - gelNotesSpace; // full plot height minus label/caption space, unless width needs to be capped
+      const nativeWidths = displayLanes.map(dl => targetH * (dl.img.w/dl.img.h));
+      const totalNaturalW = nativeWidths.reduce((a,b)=>a+b, 0);
+      const maxWidthPx = (g.panelWidthMm||100)*scale*3.4;
+      let gelHeight = targetH, widths = nativeWidths;
+      if(totalNaturalW > maxWidthPx){
+        // lanes would overflow the configured max width — shrink every lane by the
+        // same factor (so they all still share one height, undistorted) rather than
+        // padding cells, which is what caused the gaps between lanes.
+        const f = maxWidthPx/totalNaturalW;
+        gelHeight = targetH*f;
+        widths = nativeWidths.map(w=>w*f);
+      }
+      const gelWidthPx = widths.reduce((a,b)=>a+b, 0);
+      const gelTop = gelTop0 + (targetH-gelHeight)/2; // centered in the plot's vertical space
+      const gelLeft = pxWidth + gapPx;
+      let cursor = gelLeft;
+      const cells = displayLanes.map((dl,idx)=>{
+        const w = widths[idx];
+        const cellX = cursor;
+        cursor += w;
+        return {...dl, cellX, cellW: w, imgX: cellX, imgY: gelTop, imgW: w, imgH: gelHeight};
+      });
+      const titleY = marginT + gelTitleSpace*0.7;
+      const notesY0 = gelTop + gelHeight + noteLineH + 6*scale;
+      gelInfo = {cells, gapPx, gapPxRight, gelWidthPx, gelTop, gelHeight, gelLeft, markerOnRight,
+        gelTitleText, titleY, noteLines, notesY0, noteLineH};
+    }
+  }
+  // A small fixed margin on the left and right of the whole exported figure — without
+  // this, the y-axis (on the left) or the gel panel / MW labels (on the right) can sit
+  // flush against the canvas edge, which looks like cropping once rasterized to PNG or
+  // dropped into a slide (any hairline stroke right at the edge gets half-clipped).
+  const padX = 10*scale;
+  const outW = padX*2 + pxWidth + (gelInfo ? gelInfo.gapPx+gelInfo.gelWidthPx+gelInfo.gapPxRight : 0);
+  const outH = pxHeight;
+
+  let svg = '';
+  svg += '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+outW+'" height="'+outH+'" viewBox="0 0 '+outW+' '+outH+'" font-family="Helvetica, Arial, sans-serif">';
+  svg += '<rect width="100%" height="100%" fill="#FFFFFF"/>';
+  svg += '<g transform="translate('+padX+',0)">';
+
+  const axisColor = '#2A2E30';
+  const gridColor = '#E6E6E1';
+  const fs = 9.5*scale, fsLabel = 10.5*scale, fsTitle = 13*scale;
+
+  // grid
+  if(showGridEl){
+    svg += '<g stroke="'+gridColor+'" stroke-width="'+(0.6*scale)+'">';
+    xTicks.forEach(t=>{ const X=sx(t); svg += '<line x1="'+X+'" y1="'+marginT+'" x2="'+X+'" y2="'+(marginT+plotH)+'"/>'; });
+    leftTicks.forEach(t=>{ const Y=syLeft(t); svg += '<line x1="'+marginL+'" y1="'+Y+'" x2="'+(marginL+plotW)+'" y2="'+Y+'"/>'; });
+    svg += '</g>';
+  }
+
+  // plot border (light)
+  svg += '<rect x="'+marginL+'" y="'+marginT+'" width="'+plotW+'" height="'+plotH+'" fill="none" stroke="'+gridColor+'" stroke-width="'+(0.8*scale)+'"/>';
+
+  // Tint the volume window of each gel lane that's a fraction lane, drawn under the
+  // curves so the trace stays legible over the highlighted band(s). Rects for every
+  // band are always emitted (not just currently-selected ones) with opacity toggled
+  // by selection state; that way an exported copy's embedded script can flip the same
+  // toggle client-side without needing to know anything about app state. Adjacent
+  // selected fractions end up flush against each other since they share the same
+  // color/opacity, reading as one contiguous highlighted region.
+  if(gelInfo){
+    gelInfo.cells.forEach(c=>{
+      if(c.band){
+        const on = g.selectedLanes.includes(c.i);
+        const tintColor = laneLabelColor(c.runId, '#B1542E');
+        svg += '<rect class="gel-tint" data-lane-i="'+c.i+'" x="'+c.band.x+'" y="'+marginT+'" width="'+c.band.w+'" height="'+plotH+'" fill="'+tintColor+'" fill-opacity="'+(on?0.15:0)+'"/>';
+      }
+    });
+  }
+
+  // curves (clipped to the plot rectangle so out-of-window data doesn't spill past the axes)
+  const clipId = 'plotclip-'+Math.random().toString(36).slice(2);
+  svg += '<defs><clipPath id="'+clipId+'"><rect x="'+marginL+'" y="'+marginT+'" width="'+plotW+'" height="'+plotH+'"/></clipPath></defs>';
+  svg += '<g clip-path="url(#'+clipId+')">';
+  active.forEach(c=>{
+    const xs = curveX(c);
+    const sy = c.axis==='left' ? syLeft : syRight;
+    if(!sy) return;
+    const d = decimate(xs, c.y, Math.max(400, Math.round(plotW)));
+    let path = '';
+    for(let i=0;i<d.x.length;i++){
+      const X = sx(d.x[i]), Y = sy(d.y[i]);
+      path += (i===0?'M':'L') + X.toFixed(2) + ',' + Y.toFixed(2) + ' ';
+    }
+    const dashAttr = c.dashed ? ' stroke-dasharray="'+(4.5*scale)+','+(3*scale)+'"' : '';
+    svg += '<path d="'+path+'" fill="none" stroke="'+c.color+'" stroke-width="'+(lw*scale)+'" stroke-linejoin="round" stroke-linecap="round"'+dashAttr+'/>';
+  });
+  svg += '</g>';
+
+  // peak markers — collected across every curve with peaks first, then laid out
+  // as small dots at the true apex connected by a thin leader to a label pinned
+  // near the top of the plot. This keeps labels off the curve trace itself,
+  // which a fixed offset above the apex can't guarantee once curves aren't
+  // monotonic (a shorter peak's label can otherwise land on a taller neighbor).
+  if(showPeaksEl){
+    let peakItems = [];
+    peakCandidates().forEach(peakCurve=>{
+      const sy = peakCurve.axis==='left'?syLeft:syRight;
+      if(!sy) return;
+      const peakRun = state.runs.find(r=>r.id===peakCurve.runId);
+      const peakOffset = effectiveOffset(peakRun);
+      // Peak retention is reported relative to injection when peaksZeroAdjustedToInjection
+      // is set; our curve's own x-data is always raw/absolute, so add that back on to
+      // land the marker on the curve's actual coordinates before applying the same
+      // shift (manual/injection-zero) used to draw the curve itself.
+      const peakBaseCorrection = (peakCurve.peaksZeroAdjustedToInjection && peakRun && peakRun.injectionVolume!=null)
+        ? peakRun.injectionVolume : 0;
+      const xConv = useCV && peakCurve.columnVolume ? (peakCurve.columnVolume) : null;
+      peakCurve.peaks.forEach(pk=>{
+        if(pk.hidden) return;
+        let xv = pk.retention + peakBaseCorrection + peakOffset;
+        if(xConv) xv = xv/xConv;
+        if(xv<xmin || xv>xmax) return;
+        const apexY = pk.height!=null ? sy(pk.height) : marginT+10*scale;
+        peakItems.push({xv, apexY, color: peakCurve.color});
+      });
+    });
+    peakItems.sort((a,b)=>a.xv-b.xv);
+
+    const labelRows = [marginT+12*scale, marginT+25*scale];
+    const minGapPx = 26*scale; // peaks closer than this on screen alternate label rows
+    let lastX = -Infinity, tier = 0;
+    svg += '<g>';
+    peakItems.forEach(item=>{
+      const X = sx(item.xv);
+      tier = (X - lastX < minGapPx) ? 1-tier : 0;
+      lastX = X;
+      const labelY = labelRows[tier];
+      svg += '<line x1="'+X+'" y1="'+(labelY+3*scale)+'" x2="'+X+'" y2="'+item.apexY+'" stroke="'+item.color+'" stroke-width="'+(0.7*scale)+'" stroke-dasharray="'+(1.5*scale)+','+(1.5*scale)+'"/>';
+      svg += '<circle cx="'+X+'" cy="'+item.apexY+'" r="'+(1.6*scale)+'" fill="'+item.color+'"/>';
+      svg += '<text x="'+X+'" y="'+labelY+'" font-size="'+fs+'" fill="'+item.color+'" text-anchor="middle">'+fmtNum(item.xv)+'</text>';
+    });
+    svg += '</g>';
+  }
+
+  // fraction ticks — only from the selected run's own offset/column volume, and only
+  // well-plate style fraction labels (e.g. "1.A1", "1.C.11"), not the many other
+  // method/instrument log events UNICORN also stores under Events.
+  const isFractionLabel = text => /^\d+\.[A-Za-z]\.?\d+$/.test((text||'').trim());
+  if(showFractionsEl && state.runs.length){
+    const selectedRunId = state.runs.length > 1
+      ? +document.getElementById('fractionSource').value
+      : state.runs[0].id;
+    const run = state.runs.find(r=>r.id===selectedRunId);
+    const fractionEvents = run ? run.events.filter(ev=>isFractionLabel(ev.text)) : [];
+    if(run && fractionEvents.length){
+      const yBase = marginT + plotH;
+      const repCurve = active.find(c=>c.runId===run.id) || state.curves.find(c=>c.runId===run.id);
+      const xConv = useCV && repCurve && repCurve.columnVolume ? repCurve.columnVolume : null;
+      const offset = effectiveOffset(run);
+      const tickColor = repCurve ? repCurve.color : axisColor;
+      svg += '<g stroke="'+tickColor+'" stroke-width="'+(0.6*scale)+'">';
+      fractionEvents.forEach(ev=>{
+        let xv = ev.volume + offset;
+        if(xConv) xv = xv/xConv;
+        if(xv<xmin || xv>xmax) return;
+        const X = sx(xv);
+        svg += '<line x1="'+X+'" y1="'+yBase+'" x2="'+X+'" y2="'+(yBase+5*scale)+'"/>';
+      });
+      svg += '</g>';
+      svg += '<g font-size="'+(fs*0.85)+'" fill="'+tickColor+'">';
+      fractionEvents.forEach((ev,i)=>{
+        let xv = ev.volume + offset;
+        if(xConv) xv = xv/xConv;
+        if(xv<xmin || xv>xmax) return;
+        if(fractionEvents.length>40 && i%2!==0) return;
+        const X = sx(xv);
+        svg += '<text x="'+X+'" y="'+(yBase+32*scale)+'" text-anchor="end" transform="rotate(-60 '+X+','+(yBase+32*scale)+')">'+escapeHtml(ev.text)+'</text>';
+      });
+      svg += '</g>';
+    }
+  }
+
+  // axes ticks & labels
+  svg += '<g stroke="'+axisColor+'" stroke-width="'+(0.9*scale)+'">';
+  svg += '<line x1="'+marginL+'" y1="'+(marginT+plotH)+'" x2="'+(marginL+plotW)+'" y2="'+(marginT+plotH)+'"/>';
+  xTicks.forEach(t=>{ const X=sx(t); svg += '<line x1="'+X+'" y1="'+(marginT+plotH)+'" x2="'+X+'" y2="'+(marginT+plotH+4*scale)+'"/>'; });
+  svg += '<line x1="'+marginL+'" y1="'+marginT+'" x2="'+marginL+'" y2="'+(marginT+plotH)+'"/>';
+  leftTicks.forEach(t=>{ const Y=syLeft(t); svg += '<line x1="'+(marginL-4*scale)+'" y1="'+Y+'" x2="'+marginL+'" y2="'+Y+'"/>'; });
+  if(rightDom){
+    svg += '<line x1="'+(marginL+plotW)+'" y1="'+marginT+'" x2="'+(marginL+plotW)+'" y2="'+(marginT+plotH)+'"/>';
+    rightTicks.forEach(t=>{ const Y=syRight(t); svg += '<line x1="'+(marginL+plotW)+'" y1="'+Y+'" x2="'+(marginL+plotW+4*scale)+'" y2="'+Y+'"/>'; });
+  }
+  svg += '</g>';
+
+  svg += '<g font-size="'+fs+'" fill="'+axisColor+'">';
+  xTicks.forEach(t=>{ const X=sx(t); svg += '<text x="'+X+'" y="'+(marginT+plotH+16*scale)+'" text-anchor="middle">'+fmtNum(t)+'</text>'; });
+  leftTicks.forEach(t=>{ const Y=syLeft(t); svg += '<text x="'+(marginL-8*scale)+'" y="'+(Y+3*scale)+'" text-anchor="end">'+fmtNum(t)+'</text>'; });
+  if(rightDom) rightTicks.forEach(t=>{ const Y=syRight(t); svg += '<text x="'+(marginL+plotW+8*scale)+'" y="'+(Y+3*scale)+'" text-anchor="start">'+fmtNum(t)+'</text>'; });
+  svg += '</g>';
+
+  // axis titles
+  const xTitle = xLabelManual || ('Volume ('+(useCV?'CV':(active[0].xUnit||''))+')');
+  svg += '<text x="'+(marginL+plotW/2)+'" y="'+(pxHeight-8*scale)+'" text-anchor="middle" font-size="'+fsLabel+'" fill="'+axisColor+'">'+escapeHtml(xTitle)+'</text>';
+  if(leftLabel) svg += '<text x="'+(14*scale)+'" y="'+(marginT+plotH/2)+'" text-anchor="middle" font-size="'+fsLabel+'" fill="'+axisColor+'" transform="rotate(-90 '+(14*scale)+','+(marginT+plotH/2)+')">'+escapeHtml(leftLabel)+'</text>';
+  if(rightDom && rightLabel) svg += '<text x="'+(pxWidth-12*scale)+'" y="'+(marginT+plotH/2)+'" text-anchor="middle" font-size="'+fsLabel+'" fill="'+axisColor+'" transform="rotate(90 '+(pxWidth-12*scale)+','+(marginT+plotH/2)+')">'+escapeHtml(rightLabel)+'</text>';
+
+  // title
+  if(title) svg += '<text x="'+(marginL+plotW/2)+'" y="'+(marginT-14*scale)+'" text-anchor="middle" font-size="'+fsTitle+'" font-weight="700" fill="'+axisColor+'">'+escapeHtml(title)+'</text>';
+
+  // legend
+  if(showLegendEl && (active.length>1 || state.runs.length>1)){
+    let ly = marginT + 12*scale;
+    const lx = marginL + plotW - 6*scale;
+    const charW = fs*0.62; // rough average glyph width for this font/size
+    const maxLabelLen = Math.max(...active.map(c=>(c.label||'').length), 1);
+    const textColW = maxLabelLen*charW + 10*scale;
+    const swatchLen = 12*scale;
+    const swatchX1 = lx - textColW - swatchLen;
+    const swatchX2 = swatchX1 + swatchLen;
+    svg += '<g font-size="'+fs+'" text-anchor="start">';
+    active.forEach(c=>{
+      const label = c.label || c.name;
+      const legendDash = c.dashed ? ' stroke-dasharray="'+(2.5*scale)+','+(1.8*scale)+'"' : '';
+      svg += '<line x1="'+swatchX1+'" y1="'+(ly-3*scale)+'" x2="'+swatchX2+'" y2="'+(ly-3*scale)+'" stroke="'+c.color+'" stroke-width="'+(2*scale)+'"'+legendDash+'/>';
+      svg += '<text x="'+(swatchX2+4*scale)+'" y="'+ly+'" fill="'+axisColor+'">'+escapeHtml(label)+'</text>';
+      ly += 14*scale;
+    });
+    svg += '</g>';
+  }
+
+  // gel panel — a strip of lane cells to the right of the plot, each lane fit
+  // (not stretched) into its cell so proportions stay true to the original photo.
+  if(gelInfo){
+    // When dividers are hidden, stretch each lane image slightly into its neighbors so
+    // no thin background sliver (or anti-aliasing seam) shows between lanes once
+    // rasterized to PNG.
+    const overlap = g.showDividers ? 0 : Math.max(0.75, 0.75*scale);
+    // Backgrounds/images first, then labels, then every highlight border drawn in its
+    // own pass on top — otherwise each lane's right-edge stroke gets partially painted
+    // over by the next lane's image (drawn right after it), leaving that side looking
+    // thinner than the other three.
+    gelInfo.cells.forEach(cell=>{
+      if(g.showDividers){
+        svg += '<rect x="'+cell.cellX+'" y="'+gelInfo.gelTop+'" width="'+cell.cellW+'" height="'+gelInfo.gelHeight+'" fill="#FAFAF7" stroke="'+gridColor+'" stroke-width="'+(0.6*scale)+'"/>';
+      }
+      const imgX = cell.imgX - overlap, imgW = cell.imgW + overlap*2;
+      svg += '<image x="'+imgX+'" y="'+cell.imgY+'" width="'+imgW+'" height="'+cell.imgH+'" preserveAspectRatio="none" xlink:href="'+cell.img.url+'"/>';
+      if(g.showLaneLabels){
+        const cx = cell.cellX+cell.cellW/2;
+        const ly = gelInfo.gelTop-8*scale;
+        const labelColor = laneLabelColor(cell.runId, axisColor);
+        svg += '<text x="'+cx+'" y="'+ly+'" text-anchor="start" font-size="'+(fs*0.85)+'" fill="'+labelColor+'" transform="rotate(-60 '+cx+','+ly+')">'+escapeHtml(cell.label)+'</text>';
+      }
+    });
+    // Selection border, drawn as four independent dashed line segments per lane
+    // (top/bottom/left/right) rather than one rect, so that when two or more
+    // neighboring lanes are selected the shared edge between them is simply left
+    // off — the group reads as one fused dashed box instead of separate touching
+    // ones. Segments are always emitted (like the tint rects above) with opacity
+    // toggled by selection state, so an exported copy's embedded script can
+    // recompute the same left/right suppression purely from click order, with no
+    // need to know anything about app state.
+    {
+      const sw = 1.8*scale;
+      const dash = (4*scale)+','+(3*scale);
+      const y0 = gelInfo.gelTop, y1 = gelInfo.gelTop+gelInfo.gelHeight;
+      gelInfo.cells.forEach((cell,idx)=>{
+        const isSel = g.selectedLanes.includes(cell.i);
+        const prevSel = idx>0 && g.selectedLanes.includes(gelInfo.cells[idx-1].i);
+        const nextSel = idx<gelInfo.cells.length-1 && g.selectedLanes.includes(gelInfo.cells[idx+1].i);
+        const borderColor = laneLabelColor(cell.runId, '#B1542E');
+        const x0 = cell.cellX, x1 = cell.cellX+cell.cellW;
+        const base = 'class="gel-border" data-lane-i="'+cell.i+'" stroke="'+borderColor+'" stroke-width="'+sw+'" stroke-dasharray="'+dash+'" fill="none"';
+        svg += '<line '+base+' data-dir="top" x1="'+x0+'" y1="'+y0+'" x2="'+x1+'" y2="'+y0+'" opacity="'+(isSel?1:0)+'"/>';
+        svg += '<line '+base+' data-dir="bottom" x1="'+x0+'" y1="'+y1+'" x2="'+x1+'" y2="'+y1+'" opacity="'+(isSel?1:0)+'"/>';
+        svg += '<line '+base+' data-dir="left" x1="'+x0+'" y1="'+y0+'" x2="'+x0+'" y2="'+y1+'" opacity="'+((isSel&&!prevSel)?1:0)+'"/>';
+        svg += '<line '+base+' data-dir="right" x1="'+x1+'" y1="'+y0+'" x2="'+x1+'" y2="'+y1+'" opacity="'+((isSel&&!nextSel)?1:0)+'"/>';
+      });
+    }
+    svg += '<rect x="'+gelInfo.gelLeft+'" y="'+gelInfo.gelTop+'" width="'+gelInfo.gelWidthPx+'" height="'+gelInfo.gelHeight+'" fill="none" stroke="'+axisColor+'" stroke-width="'+(0.8*scale)+'"/>';
+
+    if(gelInfo.gelTitleText){
+      const tcx = gelInfo.gelLeft + gelInfo.gelWidthPx/2;
+      svg += '<text x="'+tcx+'" y="'+gelInfo.titleY+'" text-anchor="middle" font-size="'+(fs*0.95)+'" font-weight="600" fill="'+axisColor+'">'+escapeHtml(gelInfo.gelTitleText)+'</text>';
+    }
+    if(gelInfo.noteLines.length){
+      const ncx = gelInfo.gelLeft + gelInfo.gelWidthPx/2;
+      gelInfo.noteLines.forEach((line,idx)=>{
+        const ny = gelInfo.notesY0 + idx*gelInfo.noteLineH;
+        svg += '<text x="'+ncx+'" y="'+ny+'" text-anchor="middle" font-size="'+(fs*0.78)+'" fill="'+axisColor+'">'+escapeHtml(line)+'</text>';
+      });
+    }
+
+    // Ladder MW labels — drawn on whichever side of the gel panel is configured (left,
+    // the usual convention for blot figures, or right), one tick+number per
+    // auto-detected band. Looked up by lane index directly (not via `cells`) so this
+    // still works even when "Hide ladder lane image" has left the ladder lane out of
+    // the rendered cells — every lane cell shares the same imgY/imgH (gelInfo.gelTop /
+    // gelInfo.gelHeight), so no cell reference is needed.
+    if(g.showLadderLabels){
+      const ladderIdx = g.lanes.findIndex((lane,li)=>lane.assign==='ladder' && g.ladderBands[li] && g.ladderBands[li].length);
+      if(ladderIdx>=0){
+        g.ladderBands[ladderIdx].forEach(b=>{
+          const by = gelInfo.gelTop + b.y*gelInfo.gelHeight;
+          let tickX1, tickX2, textX, anchor;
+          if(gelInfo.markerOnRight){
+            tickX1 = gelInfo.gelLeft + gelInfo.gelWidthPx + 4*scale;
+            tickX2 = tickX1 + 7*scale;
+            textX = tickX2 + 3*scale;
+            anchor = 'start';
+          } else {
+            tickX2 = gelInfo.gelLeft - 4*scale;
+            tickX1 = tickX2 - 7*scale;
+            textX = tickX1 - 3*scale;
+            anchor = 'end';
+          }
+          svg += '<line x1="'+tickX1+'" y1="'+by+'" x2="'+tickX2+'" y2="'+by+'" stroke="'+axisColor+'" stroke-width="'+(0.8*scale)+'"/>';
+          svg += '<text x="'+textX+'" y="'+(by+3.2*scale)+'" text-anchor="'+anchor+'" font-size="'+(fs*0.8)+'" fill="'+axisColor+'">'+fmtNum(b.kDa)+'</text>';
+        });
+      }
+    }
+
+    // click-capture layer, added last so it sits on top for pointer events; invisible,
+    // so it doesn't change how anything looks. In the live preview these get click
+    // listeners (see attachGelInteractivity); in a downloaded file they're inert.
+    gelInfo.cells.forEach(cell=>{
+      svg += '<rect class="gel-lane-hit" data-lane-i="'+cell.i+'" x="'+cell.cellX+'" y="'+gelInfo.gelTop+'" width="'+cell.cellW+'" height="'+gelInfo.gelHeight+'" fill="transparent" style="cursor:pointer"/>';
+      if(cell.band){
+        svg += '<rect class="gel-band-hit" data-lane-i="'+cell.i+'" x="'+cell.band.x+'" y="'+marginT+'" width="'+cell.band.w+'" height="'+plotH+'" fill="transparent" style="cursor:pointer"/>';
+      }
+    });
+  }
+
+  svg += '</g>';
+  svg += '</svg>';
+  return {svg, outW, outH};
+}
+
+// Finds which curve peak markers are currently drawn from — the first selected,
+// visible curve that has any peaks. Shared by the plot renderer and the peak list UI.
+// A curve's peaks are keyed by run+curveNumber, since neither is unique alone
+// (each run numbers its own curves starting fresh) but the pair is stable.
+function peakCurveKey(c){ return c.runId+'|'+c.curveNumber; }
+
+function peakCandidates(){
+  return state.curves.filter(c=>c.selected && c.axis!=='off' && c.peaks && c.peaks.length);
+}
+
+function findPeakCurve(){
+  const candidates = peakCandidates();
+  if(!candidates.length) return null;
+  if(candidates.length === 1) return candidates[0];
+  const wrap = document.getElementById('peakSourceWrap');
+  const select = document.getElementById('peakSource');
+  if(wrap.style.display === 'block' && select.value){
+    const chosen = candidates.find(c=>peakCurveKey(c)===select.value);
+    if(chosen) return chosen;
+  }
+  return candidates[0];
+}
+
+function buildPeakSourceSelect(){
+  const wrap = document.getElementById('peakSourceWrap');
+  const select = document.getElementById('peakSource');
+  const candidates = peakCandidates();
+  if(candidates.length <= 1){
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+  const prevValue = select.value;
+  select.innerHTML = candidates.map(c=>{
+    const run = state.runs.find(r=>r.id===c.runId);
+    const label = (run ? run.label+' \u2013 ' : '') + (c.label || c.name);
+    return '<option value="'+peakCurveKey(c)+'">'+escapeHtml(label)+'</option>';
+  }).join('');
+  if(candidates.some(c=>peakCurveKey(c)===prevValue)) select.value = prevValue;
+  else select.value = peakCurveKey(candidates[0]);
+}
+
+function buildPeakList(){
+  const wrap = document.getElementById('peakListWrap');
+  const list = document.getElementById('peakList');
+  const peakCurve = findPeakCurve();
+  if(!peakCurve){
+    wrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  wrap.style.display = 'block';
+  list.innerHTML = peakCurve.peaks.map((pk,i)=>{
+    const label = (pk.name ? pk.name+' · ' : '') + fmtNum(pk.retention) + ' ' + (peakCurve.xUnit||'mL');
+    return '<div class="peak-row'+(pk.hidden?' is-hidden':'')+'">'+
+      '<span class="peak-label" title="'+escapeHtml(label)+'">'+escapeHtml(label)+'</span>'+
+      '<button class="peak-toggle" data-i="'+i+'">'+(pk.hidden?'restore':'hide')+'</button>'+
+    '</div>';
+  }).join('');
+  list.querySelectorAll('.peak-toggle').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const i = +e.target.dataset.i;
+      peakCurve.peaks[i].hidden = !peakCurve.peaks[i].hidden;
+      render();
+    });
+  });
+}
+
+function render(){
+  buildPeakSourceSelect();
+  buildPeakList();
+  const wMm = parseFloat(document.getElementById('wMm').value) || 180;
+  const hMm = parseFloat(document.getElementById('hMm').value) || 110;
+  // preview at a fixed comfortable pixel scale (~3.4 px/mm)
+  const pxW = Math.round(wMm*3.4);
+  const pxH = Math.round(hMm*3.4);
+  const built = buildSVG(pxW, pxH, false);
+
+  let card = document.getElementById('plotCard');
+  const stage = document.getElementById('stage');
+  const placeholder = document.getElementById('placeholderCard');
+  if(placeholder) placeholder.remove();
+  if(!card){
+    card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'plotCard';
+    stage.appendChild(card);
+    const readout = document.createElement('div');
+    readout.className = 'readout';
+    readout.id = 'readout';
+    readout.textContent = 'hover the plot to read coordinates';
+    stage.appendChild(readout);
+  }
+  card.innerHTML = built.svg;
+  const svgEl = card.querySelector('svg');
+  if(svgEl){
+    // Display magnification only — the SVG's own viewBox/coordinates (and thus
+    // the exported file) stay exactly as computed; this just shows it bigger on screen.
+    // Scaled from the combined width (chromatogram + gel strip, if attached) so the
+    // whole figure grows together; height is left to CSS `height:auto` to keep aspect.
+    const DISPLAY_SCALE = 1.75;
+    svgEl.style.width = (built.outW*DISPLAY_SCALE)+'px';
+  }
+  attachHover(svgEl, pxW, pxH, wMm, hMm, built.outW);
+  attachGelInteractivity(svgEl);
+}
+
+// Clicking a gel lane toggles it in/out of the highlighted set, and clicking a
+// highlighted window on the chromatogram toggles that lane back — both directions
+// share the same selectedLanes list and re-render, so the highlights and click
+// targets stay in sync. Shift-click extends a contiguous range from the last lane
+// clicked, for quickly highlighting a run of adjacent fractions as a group.
+function attachGelInteractivity(svgEl){
+  if(!svgEl) return;
+  svgEl.querySelectorAll('.gel-lane-hit, .gel-band-hit').forEach(el=>{
+    el.addEventListener('click', e=>{
+      const i = +el.dataset.laneI;
+      const g = state.gel;
+      if(e.shiftKey && g.lastClickedLane!=null){
+        const lo = Math.min(g.lastClickedLane, i), hi = Math.max(g.lastClickedLane, i);
+        const set = new Set(g.selectedLanes);
+        for(let k=lo;k<=hi;k++) set.add(k);
+        g.selectedLanes = Array.from(set);
+      } else {
+        const idx = g.selectedLanes.indexOf(i);
+        if(idx>=0) g.selectedLanes.splice(idx,1);
+        else g.selectedLanes.push(i);
+      }
+      g.lastClickedLane = i;
+      render();
+    });
+  });
+}
+
+function attachHover(svgEl, pxW, pxH, wMm, hMm, outW){
+  if(!svgEl) return;
+  const active = state.curves.filter(c=>c.selected && c.axis!=='off');
+  if(!active.length) return;
+  const readout = document.getElementById('readout');
+  const fullW = outW || pxW;
+  svgEl.addEventListener('mousemove', e=>{
+    const rect = svgEl.getBoundingClientRect();
+    const relX = (e.clientX - rect.left) / rect.width * fullW;
+    const scale = (pxW/wMm) / 3.4;
+    const padX = 10*scale; // matches the fixed export margin added around the whole figure in buildSVG
+    const marginL = 58*scale + padX;
+    const marginR = (active.some(c=>c.axis==='right') ? 58 : 22)*scale;
+    const plotW = pxW - marginL - marginR;
+    const useCV = document.getElementById('useCV').checked;
+    const zeroInjectionEl = document.getElementById('zeroInjection').checked;
+    function curveX(c){
+      const run = state.runs.find(r=>r.id===c.runId);
+      let offset = run ? (run.xOffset||0) : 0;
+      if(zeroInjectionEl && run && run.injectionVolume!=null) offset -= run.injectionVolume;
+      if(useCV && c.columnVolume) return c.x.map(v=>(v+offset)/c.columnVolume);
+      if(offset) return c.x.map(v=>v+offset);
+      return c.x;
+    }
+    let xmin=Infinity, xmax=-Infinity;
+    active.forEach(c=>{ const xs = curveX(c); for(let i=0;i<xs.length;i++){ if(xs[i]<xmin)xmin=xs[i]; if(xs[i]>xmax)xmax=xs[i]; } });
+    const xv = xmin + (relX-marginL)/plotW*(xmax-xmin);
+    if(xv<xmin || xv>xmax){ readout.textContent='hover the plot to read coordinates'; return; }
+    readout.textContent = 'x = '+fmtNum(xv)+' '+(useCV?'CV':(active[0].xUnit||''));
+  });
+  svgEl.addEventListener('mouseleave', ()=>{ readout.textContent='hover the plot to read coordinates'; });
+}
+
+// ---------- project save / reopen (round-trips through the exported HTML slide) ----------
+
+// Plain form controls that hold real settings but aren't mirrored into `state` —
+// everything else (curve colors/labels, run offsets, gel crop/lane setup, etc.) already
+// lives on `state` and gets swept up automatically.
+const UI_VALUE_FIELDS = ['titleInput','leftLabel','rightLabel','xLabel','lineWidth','wMm','hMm',
+  'dpiSelect','xMin','xMax','yLeftMin','yLeftMax','yRightMin','yRightMax','sizePreset','peakSource'];
+const UI_CHECK_FIELDS = ['useCV','showGrid','showLegend','showPeaks','showFractions','zeroInjection'];
+
+function serializeAppState(){
+  const ui = {};
+  UI_VALUE_FIELDS.forEach(id=>{ const el=document.getElementById(id); if(el) ui[id]=el.value; });
+  UI_CHECK_FIELDS.forEach(id=>{ const el=document.getElementById(id); if(el) ui[id]=el.checked; });
+  return {
+    version: 1,
+    nextRunId: state.nextRunId,
+    runs: state.runs,
+    // x/y are Float64Arrays in memory — JSON.stringify would otherwise turn them into
+    // {"0":1.2,"1":3.4,...} objects, so flatten to plain arrays here.
+    curves: state.curves.map(c=>({...c, x:Array.from(c.x), y:Array.from(c.y)})),
+    // g.img (an HTMLImageElement) can't be serialized and isn't needed to — it gets
+    // rebuilt from g.dataUrl on reopen. Lane crop images are already data URLs. The
+    // flipped-image cache is a canvas (also unserializable) and cheap to regenerate.
+    gel: {...state.gel, img:null, _flipCache:null, _flipCacheFor:null},
+    ui
+  };
+}
+
+// Pulls the embedded project-data JSON out of a previously-exported HTML slide and
+// swaps it in for the current session, then rebuilds every panel the same way the
+// normal load paths (addRun / finishGelImageLoad) do.
+function importProjectFromHtml(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try{
+      const doc = new DOMParser().parseFromString(reader.result, 'text/html');
+      const script = doc.getElementById('baseline-project-data');
+      if(!script) throw new Error('no embedded project data');
+      data = JSON.parse(script.textContent);
+    }catch(err){
+      alert('Could not find PeakyPicky project data in that file.\n\nThis only works with an "HTML slide" downloaded from this app\'s Export panel — a plain gel photo or chromatogram export won\'t have it embedded.');
+      return;
+    }
+    if((state.runs.length || state.gel.loaded) && !confirm('Reopening this session will replace everything currently loaded. Continue?')) return;
+
+    state.nextRunId = data.nextRunId || 0;
+    state.runs = data.runs || [];
+    state.curves = (data.curves||[]).map(c=>({...c, x:new Float64Array(c.x), y:new Float64Array(c.y)}));
+    state.gel = {...data.gel, img:null};
+
+    const ui = data.ui || {};
+    UI_VALUE_FIELDS.forEach(id=>{ if(ui[id]!=null){ const el=document.getElementById(id); if(el) el.value = ui[id]; } });
+    UI_CHECK_FIELDS.forEach(id=>{ if(ui[id]!=null){ const el=document.getElementById(id); if(el) el.checked = ui[id]; } });
+    const lwVal = document.getElementById('lwVal');
+    if(lwVal) lwVal.textContent = document.getElementById('lineWidth').value;
+    const sensVal = document.getElementById('gelSensVal');
+    if(sensVal) sensVal.textContent = state.gel.bandSensitivity;
+
+    // Gel-specific controls that only ever get set from state.gel at image-load time,
+    // not kept in sync afterward — push them across explicitly here.
+    document.getElementById('gelLaneCount').value = state.gel.laneCount;
+    document.getElementById('gelCropL').value = state.gel.cropL;
+    document.getElementById('gelCropR').value = state.gel.cropR;
+    document.getElementById('gelCropT').value = state.gel.cropT;
+    document.getElementById('gelCropB').value = state.gel.cropB;
+    document.getElementById('gelLadderValues').value = state.gel.ladderValues;
+    syncLadderPresetSelect();
+    document.getElementById('gelSensitivity').value = state.gel.bandSensitivity;
+    document.getElementById('gelShowLadderLabels').checked = state.gel.showLadderLabels;
+    document.getElementById('gelHideLadderLane').checked = state.gel.hideLadderLane;
+    document.getElementById('gelMarkerSide').value = state.gel.markerSide;
+    document.getElementById('gelFlipX').checked = state.gel.flipX;
+    document.getElementById('gelShowGel').checked = state.gel.showGel;
+    document.getElementById('gelShowLabels').checked = state.gel.showLaneLabels;
+    document.getElementById('gelShowDividers').checked = state.gel.showDividers;
+    document.getElementById('gelTitle').value = state.gel.title || '';
+    document.getElementById('gelNotes').value = state.gel.notes || '';
+    document.getElementById('gelPanelWidth').value = state.gel.panelWidthMm;
+
+    document.getElementById('dropzoneTitle').textContent = state.runs.length ? 'Drop another run to overlay' : 'Drop export here';
+    ['curvesBlock','annotBlock','labelsBlock','axisRangeBlock','styleBlock','gelBlock','exportBlock'].forEach(id=>{
+      document.getElementById(id).style.display = state.runs.length ? 'block' : 'none';
+    });
+
+    buildRunsList();
+    buildCurveList();
+
+    const finishNonGel = () => {
+      buildPeakSourceSelect();
+      buildPeakList();
+      render();
+    };
+
+    if(state.gel.dataUrl){
+      const img = new Image();
+      img.onload = () => {
+        state.gel.img = img;
+        state.gel.natW = img.naturalWidth;
+        state.gel.natH = img.naturalHeight;
+        document.getElementById('gelDropzoneTitle').textContent = 'Replace gel image';
+        document.getElementById('gelControls').style.display = 'block';
+        buildGelLaneList();
+        recomputeGelLaneCrops();
+        drawGelPreview();
+        finishNonGel();
+      };
+      img.onerror = () => { alert('Restored the session, but the embedded gel photo failed to reload.'); finishNonGel(); };
+      img.src = state.gel.dataUrl;
+    } else {
+      finishNonGel();
+    }
+  };
+  reader.onerror = () => alert('Could not read that file.');
+  reader.readAsText(file);
+}
+
+document.getElementById('importFileInput').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(file) importProjectFromHtml(file);
+  e.target.value = '';
+});
+
+// ---------- export ----------
+
+document.getElementById('btnSvg').addEventListener('click', ()=>{
+  const wMm = parseFloat(document.getElementById('wMm').value) || 180;
+  const hMm = parseFloat(document.getElementById('hMm').value) || 110;
+  const pxW = Math.round(wMm*3.4), pxH = Math.round(hMm*3.4);
+  const built = buildSVG(pxW, pxH, true);
+  const blob = new Blob([built.svg], {type:'image/svg+xml'});
+  downloadBlob(blob, 'chromatogram.svg');
+});
+
+// Wraps the same vector figure used for the SVG export as a single slide in a
+// reveal.js presentation — one self-contained HTML file that opens straight into
+// a slide-show (reveal.js itself loads from a CDN, so an internet connection is
+// needed the first time it's opened; nothing else external is required).
+document.getElementById('btnHtml').addEventListener('click', ()=>{
+  const wMm = parseFloat(document.getElementById('wMm').value) || 180;
+  const hMm = parseFloat(document.getElementById('hMm').value) || 110;
+  const pxW = Math.round(wMm*3.4), pxH = Math.round(hMm*3.4);
+  const built = buildSVG(pxW, pxH, true);
+  const titleVal = document.getElementById('titleInput').value.trim();
+  const pageTitle = titleVal || 'Chromatogram figure';
+  const heading = titleVal ? '<h2>'+escapeHtml(titleVal)+'</h2>\n      ' : '';
+  // Embeds the full working session (parsed runs/curves, gel photo + lane setup, every
+  // panel setting) as JSON so this same downloaded file can be dragged back into
+  // "Reopen a previous session" later and pick up exactly where it left off — the
+  // slide-show is the save file. '<' is escaped so a run/curve name containing a
+  // closing script tag can't break out of it; JSON.parse unescapes \u003c back to '<' fine.
+  const projectDataScript = '<script type="application/json" id="baseline-project-data">'+
+    JSON.stringify(serializeAppState()).replace(/</g, '\\u003c')+
+    '<\/script>\n';
+  // Self-contained click-to-highlight behavior for the exported copy: the SVG already
+  // contains hidden dashed border-line segments (four per lane: top/bottom/left/right)
+  // plus a tint rect per lane, all opacity-toggled, and transparent hit-rects over each
+  // lane and each fraction's collection window on the trace. This script recomputes
+  // which segments to show on each click — same toggle + shift-click-range behavior as
+  // the live app, including suppressing the shared edge between adjacent selected
+  // lanes so they read as one fused dashed box — with no dependency on the app's own
+  // state or re-render logic.
+  const interactiveScript = ''+
+    '<script>\n'+
+    '(function(){\n'+
+    '  var svg = document.currentScript.previousElementSibling;\n'+
+    '  if(!svg) return;\n'+
+    '  var selected = new Set();\n'+
+    '  var lastClicked = null;\n'+
+    '  function updateVisuals(){\n'+
+    '    var hits = Array.prototype.slice.call(svg.querySelectorAll(".gel-lane-hit"));\n'+
+    '    var order = {};\n'+
+    '    hits.forEach(function(el, idx){ order[+el.dataset.laneI] = idx; });\n'+
+    '    svg.querySelectorAll(".gel-border").forEach(function(el){\n'+
+    '      var i = +el.dataset.laneI, idx = order[i];\n'+
+    '      var isSel = selected.has(i);\n'+
+    '      var prevSel = idx>0 && selected.has(+hits[idx-1].dataset.laneI);\n'+
+    '      var nextSel = idx<hits.length-1 && selected.has(+hits[idx+1].dataset.laneI);\n'+
+    '      var dir = el.dataset.dir;\n'+
+    '      var show = (dir==="top"||dir==="bottom") ? isSel : (dir==="left" ? (isSel&&!prevSel) : (isSel&&!nextSel));\n'+
+    '      el.setAttribute("opacity", show ? "1" : "0");\n'+
+    '    });\n'+
+    '    svg.querySelectorAll(".gel-tint").forEach(function(el){\n'+
+    '      el.setAttribute("fill-opacity", selected.has(+el.dataset.laneI) ? "0.15" : "0");\n'+
+    '    });\n'+
+    '  }\n'+
+    '  svg.querySelectorAll(".gel-lane-hit, .gel-band-hit").forEach(function(el){\n'+
+    '    el.addEventListener("click", function(e){\n'+
+    '      var i = +el.dataset.laneI;\n'+
+    '      if(e.shiftKey && lastClicked!==null){\n'+
+    '        var lo = Math.min(lastClicked, i), hi = Math.max(lastClicked, i);\n'+
+    '        for(var k=lo; k<=hi; k++) selected.add(k);\n'+
+    '      } else if(selected.has(i)){\n'+
+    '        selected.delete(i);\n'+
+    '      } else {\n'+
+    '        selected.add(i);\n'+
+    '      }\n'+
+    '      lastClicked = i;\n'+
+    '      updateVisuals();\n'+
+    '    });\n'+
+    '  });\n'+
+    '})();\n'+
+    '<\/script>\n';
+  const html = '<!DOCTYPE html>\n'+
+    '<html lang="en">\n'+
+    '<head>\n'+
+    '<meta charset="UTF-8">\n'+
+    '<meta name="viewport" content="width=device-width, initial-scale=1">\n'+
+    '<title>'+escapeHtml(pageTitle)+'</title>\n'+
+    '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.css">\n'+
+    '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/theme/white.css">\n'+
+    '<style>\n'+
+    '  .reveal .slides section{ text-align:center; }\n'+
+    '  .reveal .slides section h2{ font-size:0.9em; margin-bottom:0.6em; }\n'+
+    '  .figure-slide svg{ width:100%; height:auto; max-height:75vh; }\n'+
+    '  .figure-slide .gel-lane-hit, .figure-slide .gel-band-hit{ pointer-events:all; }\n'+
+    '</style>\n'+
+    '</head>\n'+
+    '<body>\n'+
+    '<div class="reveal">\n'+
+    '  <div class="slides">\n'+
+    '    <section class="figure-slide">\n'+
+    '      '+heading+
+    built.svg+'\n'+
+    interactiveScript+
+    '    </section>\n'+
+    '  </div>\n'+
+    '</div>\n'+
+    '<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.js"><\/script>\n'+
+    '<script>Reveal.initialize({ hash:true, center:true });<\/script>\n'+
+    projectDataScript+
+    '</body>\n'+
+    '</html>\n';
+  const blob = new Blob([html], {type:'text/html'});
+  downloadBlob(blob, 'chromatogram_slide.html');
+});
+
+document.getElementById('btnPng').addEventListener('click', ()=>{
+  const wMm = parseFloat(document.getElementById('wMm').value) || 180;
+  const hMm = parseFloat(document.getElementById('hMm').value) || 110;
+  const dpi = parseFloat(document.getElementById('dpiSelect').value) || 300;
+  const pxW = Math.round(wMm/25.4*dpi);
+  const pxH = Math.round(hMm/25.4*dpi);
+  const built = buildSVG(pxW, pxH, true);
+  const outWpx = Math.round(built.outW), outHpx = Math.round(built.outH);
+  const svgBlob = new Blob([built.svg], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = ()=>{
+    const canvas = document.createElement('canvas');
+    canvas.width = outWpx; canvas.height = outHpx;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0,0,outWpx,outHpx);
+    ctx.drawImage(img,0,0,outWpx,outHpx);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(blob=>{ downloadBlob(blob, 'chromatogram_'+dpi+'dpi.png'); }, 'image/png');
+  };
+  img.onerror = ()=>{ URL.revokeObjectURL(url); alert('Could not rasterize the figure.'); };
+  img.src = url;
+});
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+})();
+</script>
+</body>
+</html>

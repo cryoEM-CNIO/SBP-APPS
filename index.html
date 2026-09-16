@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F7F6F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SBP Apps">
+<meta name="robots" content="noindex, nofollow">
+<title>SBP Apps</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563EB'/><rect x='18' y='18' width='28' height='28' rx='5' fill='white'/><rect x='54' y='18' width='28' height='28' rx='5' fill='white' opacity='.6'/><rect x='18' y='54' width='28' height='28' rx='5' fill='white' opacity='.6'/><rect x='54' y='54' width='28' height='28' rx='5' fill='white' opacity='.3'/></svg>">
+<!-- Bump ?v= on every deploy so browsers pick up CSS changes immediately -->
+<link rel="stylesheet" href="shared/style.css?v=20260916-0730">
+</head>
+<body>
+<div class="hub" id="hub"></div>
+
+<script>
+// ─── app registry ───────────────────────────────────────────────────────────
+// To add an app:
+//   1. Copy the template/ folder and rename it (lowercase, no spaces).
+//   2. Edit its index.html.
+//   3. Add a row here, set live:true when ready.
+//
+// Fields:
+//   id      unique slug, matches the folder name
+//   name    display name
+//   desc    one-line description shown in the hub
+//   path    relative URL to the app folder  (must end with /)
+//   icon    single character or small symbol shown in the tile
+//   color   accent colour for the tile (hex)
+//   live    false → shows a "soon" badge and disables the link
+const APPS = [
+  { id:"peakypicky", name:"PeakyPicky", desc:"Publication-ready chromatogram & gel figures from ÄKTA / UNICORN exports", path:"peakypicky/", icon:"◆", color:"#215E93", live:true },
+];
+
+// ─── render ─────────────────────────────────────────────────────────────────
+(function () {
+  const date = new Date().toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long"
+  });
+
+  const tiles = APPS.length
+    ? APPS.map(function (a) {
+        const inner =
+          "<div class='hub-ic' style='background:" + a.color + "1a;color:" + a.color + "'>" + a.icon + "</div>"
+          + "<div class='hub-t'><div class='hub-n'>" + a.name + "</div>"
+          + "<div class='hub-d'>" + a.desc + "</div></div>"
+          + (a.live ? "" : "<span class='hub-badge'>soon</span>");
+        return a.live
+          ? "<a class='hub-item' href='" + a.path + "'>" + inner + "</a>"
+          : "<div class='hub-item soon'>" + inner + "</div>";
+      }).join("")
+    : "<div class='hub-empty'>No apps yet &mdash; add the first one to the registry in <code>index.html</code>.</div>";
+
+  document.getElementById("hub").innerHTML =
+    "<h1>SBP Apps</h1>"
+    + "<div class='sub'>Structural Biology Programme &middot; CNIO &middot; " + date + "</div>"
+    + tiles;
+})();
+</script>
+</body>
+</html>
