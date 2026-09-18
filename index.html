@@ -11,7 +11,7 @@
 <title>SBP Apps</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563EB'/><rect x='18' y='18' width='28' height='28' rx='5' fill='white'/><rect x='54' y='18' width='28' height='28' rx='5' fill='white' opacity='.6'/><rect x='18' y='54' width='28' height='28' rx='5' fill='white' opacity='.6'/><rect x='54' y='54' width='28' height='28' rx='5' fill='white' opacity='.3'/></svg>">
 <!-- Bump ?v= on every deploy so browsers pick up CSS changes immediately -->
-<link rel="stylesheet" href="resources/shared/style.css?v=20260916-0810">
+<link rel="stylesheet" href="resources/shared/style.css?v=20260918-1200">
 </head>
 <body>
 <div class="hub" id="hub"></div>
@@ -33,6 +33,9 @@
 //   live    false → shows a "soon" badge and disables the link
 const APPS = [
   { id:"peakypicky", name:"PeakyPicky", desc:"Publication-ready chromatogram & gel figures from ÄKTA / UNICORN exports", path:"resources/peakypicky/", icon:"◆", color:"#215E93", live:true },
+  { id:"cloning-designer", name:"Cloning Designer",
+    desc:"Design primers for Gibson/NEBuilder HiFi, IVA, Golden Gate, Gateway and restriction–ligation cloning; verify Sanger reads; compare whole-plasmid sequencing — all in the browser via Biopython.",
+    path:"resources/cloning-designer/", icon:"⚗", color:"#2d7d46", live:true },
 ];
 
 // ─── render ─────────────────────────────────────────────────────────────────
