@@ -23,8 +23,8 @@
   │  remember small per-user preferences in localStorage.                  │
   │                                                                         │
   │  SHARED ASSETS                                                          │
-  │  ../shared/style.css  — design tokens, components (cards, buttons…)    │
-  │  ../shared/utils.js   — file reading, CSV parsing, download helpers     │
+  │  /SBP-APPS/resources/shared/style.css  — design tokens, components (cards, buttons…)    │
+  │  /SBP-APPS/resources/shared/utils.js   — file reading, CSV parsing, download helpers     │
   │  Bump the ?v= cache-buster when either file changes.                    │
   └─────────────────────────────────────────────────────────────────────────┘
 -->
@@ -33,14 +33,14 @@
 <title>Template</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563EB'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='sans-serif' font-weight='700' fill='white'>T</text></svg>">
 
-<link rel="stylesheet" href="../shared/style.css?v=20260916-0810">
+<link rel="stylesheet" href="/SBP-APPS/resources/shared/style.css?v=20260916-0810">
 </head>
 <body>
 <div id="app"></div>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 
 <!-- Shared helpers. Remove if unused. -->
-<script src="../shared/utils.js?v=20260916-0810"></script>
+<script src="/SBP-APPS/resources/shared/utils.js?v=20260916-0810"></script>
 
 <script>
 // ─── app config ─────────────────────────────────────────────────────────────
