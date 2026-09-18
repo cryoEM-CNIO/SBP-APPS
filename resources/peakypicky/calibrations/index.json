@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "calibrations": [
+    {
+      "id": "superdex75-10-300-gl-sbp-2026-09",
+      "label": "Superdex 75 10/300 GL — SBP, Sep 2026",
+      "file": "superdex75-10-300-gl-sbp-2026-09.json",
+      "model": "kav",
+      "columnName": "Superdex 75 10/300 GL",
+      "date": "2026-09-18"
+    },
+    {
+      "id": "s75-increase-3-2-300",
+      "label": "Superdex 75 Increase 3.2/300 (digitized)",
+      "file": "s75-increase-3-2-300.json",
+      "model": "ve",
+      "columnName": "Superdex 75 Increase 3.2/300",
+      "date": null
+    },
+    {
+      "id": "s200-increase-3-2-300",
+      "label": "Superdex 200 Increase 3.2/300 (digitized)",
+      "file": "s200-increase-3-2-300.json",
+      "model": "ve",
+      "columnName": "Superdex 200 Increase 3.2/300",
+      "date": null
+    },
+    {
+      "id": "sup6-increase-3-2-300",
+      "label": "Superose 6 Increase 3.2/300 (digitized)",
+      "file": "sup6-increase-3-2-300.json",
+      "model": "ve",
+      "columnName": "Superose 6 Increase 3.2/300",
+      "date": null
+    }
+  ]
+}

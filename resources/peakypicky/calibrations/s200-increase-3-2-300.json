@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "s200-increase-3-2-300",
+  "label": "Superdex 200 Increase 3.2/300 (digitized)",
+  "model": "ve",
+  "column": { "name": "Superdex 200 Increase 3.2/300", "vtMl": 2.4 },
+  "standards": [
+    { "name": "Thyroglobulin", "mw": 669000, "veMl": 1.025 },
+    { "name": "Ferritin", "mw": 440000, "veMl": 1.145 },
+    { "name": "Aldolase", "mw": 158000, "veMl": 1.355 },
+    { "name": "Conalbumin", "mw": 75000, "veMl": 1.485 },
+    { "name": "Ovalbumin", "mw": 44000, "veMl": 1.585 },
+    { "name": "Carbonic anhydrase", "mw": 29000, "veMl": 1.715 },
+    { "name": "Ribonuclease A", "mw": 13700, "veMl": 1.855 }
+  ],
+  "provenance": {
+    "notes": "Digitized from published Cytiva chromatogram figures for this 3.2/300 column (pixel-position analysis of the peak apexes against the plotted axis ticks), since Cytiva does not publish these as a numeric Ve table for this column format. Where two independent Cytiva chromatograms were available, the two readings were averaged. Treat resulting MW estimates as approximate (rough order-of-magnitude / apparent MW under these exact run conditions), not a certified calibration.",
+    "ported_from": "baseline_MW.html"
+  },
+  "fitSummary": {
+    "informationalOnly": true,
+    "slope": -2.0697,
+    "intercept": 7.9748,
+    "r2": 0.9967,
+    "veMin": 1.025,
+    "veMax": 1.855,
+    "nStandards": 7
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "superdex75-10-300-gl-sbp-2026-09",
+  "label": "Superdex 75 10/300 GL — SBP, Sep 2026",
+  "model": "kav",
+  "column": { "name": "Superdex 75 10/300 GL", "vtMl": 23.562 },
+  "veReference": "injection",
+  "void": {
+    "v0Ml": 7.270,
+    "marker": "Blue dextran 2000",
+    "sourceRun": "20260918_BlueDextran_S75",
+    "runDate": "2026-09-18"
+  },
+  "standards": [
+    { "name": "Conalbumin", "mw": 77777, "veMl": 9.022, "sourceRun": "20260917_77777Conalb+13700RnaseA_S75", "runDate": "2026-09-17" },
+    { "name": "Ovalbumin", "mw": 44287, "veMl": 9.789, "sourceRun": "20260917_25656Chemo+44287Ova_S75", "runDate": "2026-09-17" },
+    { "name": "Chymotrypsinogen A", "mw": 25656, "veMl": 11.689, "sourceRun": "20260917_25656Chemo+44287Ova_S75", "runDate": "2026-09-17" },
+    { "name": "Ribonuclease A", "mw": 13700, "veMl": 12.857, "sourceRun": "20260917_77777Conalb+13700RnaseA_S75", "runDate": "2026-09-17" }
+  ],
+  "provenance": {
+    "createdBy": "cchacon@cnio.es",
+    "createdAt": "2026-09-18",
+    "tool": "peakypicky/calibrate.html",
+    "peakSource": "auto-detected UV apex, human-confirmed (no UNICORN peak table in these exports)",
+    "notes": "Only 4 standards over Kav 0.11-0.34; worst residual +16% (ovalbumin). Estimates outside that Kav range are extrapolated."
+  },
+  "fitSummary": {
+    "informationalOnly": true,
+    "slope": -2.9650,
+    "intercept": 5.1703,
+    "r2": 0.9744,
+    "kavMin": 0.1075,
+    "kavMax": 0.3429,
+    "nStandards": 4
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "s75-increase-3-2-300",
+  "label": "Superdex 75 Increase 3.2/300 (digitized)",
+  "model": "ve",
+  "column": { "name": "Superdex 75 Increase 3.2/300", "vtMl": 2.4 },
+  "standards": [
+    { "name": "Conalbumin", "mw": 75000, "veMl": 1.02 },
+    { "name": "Ovalbumin", "mw": 44000, "veMl": 1.115 },
+    { "name": "Carbonic anhydrase", "mw": 29000, "veMl": 1.26 },
+    { "name": "Ribonuclease A", "mw": 13700, "veMl": 1.45 },
+    { "name": "Cytochrome C", "mw": 12300, "veMl": 1.46 },
+    { "name": "Aprotinin", "mw": 6500, "veMl": 1.72 },
+    { "name": "Vitamin B12", "mw": 1350, "veMl": 1.97 }
+  ],
+  "provenance": {
+    "notes": "Digitized from published Cytiva chromatogram figures for this 3.2/300 column (pixel-position analysis of the peak apexes against the plotted axis ticks), since Cytiva does not publish these as a numeric Ve table for this column format. Where two independent Cytiva chromatograms were available, the two readings were averaged. Treat resulting MW estimates as approximate (rough order-of-magnitude / apparent MW under these exact run conditions), not a certified calibration.",
+    "ported_from": "baseline_MW.html"
+  },
+  "fitSummary": {
+    "informationalOnly": true,
+    "slope": -1.7173,
+    "intercept": 6.6164,
+    "r2": 0.9816,
+    "veMin": 1.02,
+    "veMax": 1.97,
+    "nStandards": 7
+  }
+}

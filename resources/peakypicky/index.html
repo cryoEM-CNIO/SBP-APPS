@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
+<script src="parser.js?v=20260918-1850"></script>
 <style>
 :root{
   --paper:#0f1720;--panel:#16212e;--ink:#e8eef4;--ink-soft:#9fb0c0;
@@ -62,6 +63,10 @@ section.block:last-child{margin-bottom:0;}
 .peak-row .peak-toggle{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-family:var(--mono);font-size:10.5px;padding:0 2px;text-decoration:underline;}
 .peak-row .peak-toggle:hover{color:var(--accent2);}
 .peak-row.is-hidden .peak-toggle:hover{color:var(--accent1);}
+.peak-row .peak-mw{color:var(--ink-soft);white-space:nowrap;margin-left:6px;font-style:italic;}
+.peak-row .peak-auto-tag{color:var(--accent1);font-size:9px;vertical-align:super;margin-left:2px;}
+.mw-note{font-family:var(--mono);font-size:9.5px;color:var(--ink-soft);line-height:1.5;margin-top:4px;}
+.mw-warning{display:none;margin-top:6px;padding:5px 7px;border-radius:4px;background:rgba(224,168,58,.12);border:1px solid var(--accent2);color:var(--accent2);font-family:var(--mono);font-size:9.5px;line-height:1.5;}
 .curve-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line-soft);}
 .curve-row:last-child{border-bottom:none;}
 .curve-row input[type=checkbox]{accent-color:var(--accent1);cursor:pointer;}
@@ -131,7 +136,7 @@ textarea{background:var(--inp);color:var(--ink);border:1px solid var(--line);bor
   <span class="divider"></span>
   <span class="tagline">Publication-ready chromatogram &amp; gel figures from ÄKTA / UNICORN exports</span>
   <button id="thbtn" onclick="toggleTheme()">☀️ light</button>
-  <span style="font-size:10px;color:var(--ink-soft);opacity:.55;font-variant-numeric:tabular-nums;flex-shrink:0;">build 20260918-1200</span>
+  <span style="font-size:10px;color:var(--ink-soft);opacity:.55;font-variant-numeric:tabular-nums;flex-shrink:0;">build 20260918-1850</span>
 </header>
 
 <div class="layout">
@@ -162,6 +167,12 @@ textarea{background:var(--inp);color:var(--ink);border:1px solid var(--line);bor
       <div id="peakSourceWrap" style="display:none; margin:2px 0 4px 22px;">
         <select id="peakSource" style="font-family:var(--mono); font-size:10.5px; border:1px solid var(--line); border-radius:2px; background:var(--inp); padding:3px 4px; width:100%;"></select>
       </div>
+      <div id="peakAutoWrap" style="display:none; margin:2px 0 6px 22px;">
+        <span class="run-offset-label" style="display:block;">Sensitivity: <span id="peakAutoSensVal">5</span></span>
+        <input type="range" id="peakAutoSensitivity" min="1" max="10" step="1" value="5">
+        <button class="btn-mini" id="peakAutoDetect" type="button">Auto-detect peaks</button>
+        <span class="run-offset-label" style="display:block; margin-top:4px;">For exports with no UNICORN peak table — finds local maxima directly from the trace. Approximate; detected peaks are marked <sup style="color:var(--accent1);">auto</sup> in the list below.</span>
+      </div>
       <div id="peakListWrap" style="display:none; margin:2px 0 8px 22px;">
         <div id="peakList" style="display:flex; flex-direction:column; gap:2px;"></div>
       </div>
@@ -171,6 +182,20 @@ textarea{background:var(--inp);color:var(--ink);border:1px solid var(--line);bor
       </div>
       <label class="toggle-line"><input type="checkbox" id="useCV"> X axis in column volumes (CV)</label>
       <label class="toggle-line"><input type="checkbox" id="zeroInjection" checked> Zero volume at injection</label>
+    </section>
+
+    <section class="block" id="mwBlock" style="display:none;">
+      <h2>MW calibration</h2>
+      <label class="field">Calibration column
+        <select id="mwCalibration">
+          <option value="">— none —</option>
+        </select>
+      </label>
+      <label class="toggle-line"><input type="checkbox" id="mwOnPlot" checked> Label peaks with MW on plot</label>
+      <div id="mwFitNote" class="mw-note"></div>
+      <div id="mwWarning" class="mw-warning"></div>
+      <div class="mw-note">Estimates a peak's apparent MW from its elution volume, via Kav = (Ve−V0)/(Vt−V0) fit against a column's own standard runs (or, for the digitized-curve entries, directly against elution volume). Approximate — treat as apparent MW under these run conditions, not a certified value. Peaks outside the calibrated range are marked "~…*".</div>
+      <a href="calibrate.html" target="_blank" rel="noopener" style="display:inline-block; margin-top:8px; font-family:var(--mono); font-size:11px; color:var(--accent1);">Build a calibration from standard runs →</a>
     </section>
 
     <section class="block" id="labelsBlock" style="display:none;">
@@ -344,7 +369,7 @@ textarea{background:var(--inp);color:var(--ink);border:1px solid var(--line);bor
 // ─── SBP App identity ────────────────────────────────────────────────────────
 const APP_ID    = "peakypicky";
 const APP_TITLE = "PeakyPicky";
-const BUILD     = "20260918-1200";
+const BUILD     = "20260918-1850";
 
 const COLORS = ['#215E93','#B1542E','#5B7A46','#8A5A9E','#946200','#3D6B6B','#C23B5A','#3E7C8C'];
 
@@ -411,16 +436,7 @@ async function handleFiles(files){
     const looseFiles = [];
     for(const f of files){
       if(/\.zip$/i.test(f.name)){
-        const buf = await f.arrayBuffer();
-        const zip = await JSZip.loadAsync(buf);
-        const zipMap = {};
-        for(const path of Object.keys(zip.files)){
-          const entry = zip.files[path];
-          if(entry.dir) continue;
-          const data = await entry.async('uint8array');
-          const base = path.split('/').pop();
-          zipMap[base.toLowerCase()] = {name: base, data};
-        }
+        const zipMap = await PeakyParse.readZipToFileMap(f);
         addRun(zipMap, f.name.replace(/\.zip$/i,''));
       } else {
         looseFiles.push(f);
@@ -449,96 +465,45 @@ function escapeHtml(s){
 // ---------- XML metadata parsing ----------
 
 function addRun(fileMap, uploadedFileLabel){
-  const xmlEntry = Object.values(fileMap).find(f=>/\.xml$/i.test(f.name));
-  if(!xmlEntry){
-    const looksLikeImage = Object.values(fileMap).some(f=>/\.(png|jpe?g|tif{1,2}|bmp|gif|webp)$/i.test(f.name));
-    if(looksLikeImage){
-      alert('That looks like an image file. This box is for the chromatogram export (.zip or .Xml + curve files).\n\nTo add a gel photo, use the separate "Gel (SDS-PAGE)" panel further down the left rail (it appears once a chromatogram is loaded).');
+  const result = PeakyParse.parseUnicornExport(fileMap);
+  if(!result.ok){
+    if(/image file/.test(result.error)){
+      alert(result.error+'\n\nTo add a gel photo, use the separate "Gel (SDS-PAGE)" panel further down the left rail (it appears once a chromatogram is loaded).');
     } else {
-      alert('No .Xml metadata file found in that drop.');
+      alert(result.error);
     }
-    return;
-  }
-  const xmlText = new TextDecoder('utf-8').decode(xmlEntry.data);
-  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-  if(doc.querySelector('parsererror')){
-    alert('Could not parse the .Xml file.');
     return;
   }
 
   const runId = state.nextRunId++;
   // Label the run after the file the person actually uploaded (zip name, or the loose
   // .Xml's name) rather than the internal ChromatogramName metadata, so it's recognizable.
-  const chromatogramName = uploadedFileLabel || textOf(doc.documentElement, 'ChromatogramName') || xmlEntry.name.replace(/\.xml$/i,'');
+  const chromatogramName = uploadedFileLabel || result.chromatogramName;
 
-  const curveNodes = Array.from(doc.querySelectorAll('Curves > Curve'));
-  const newCurves = [];
   // Each run starts its own walk through the color palette (offset by how many runs
   // are already loaded), so the default-visible curve of every newly overlaid
   // chromatogram gets a distinct color instead of always starting from the same one.
   const runColorOffset = state.runs.length;
   let localColorIdx = 0;
 
-  for(const node of curveNodes){
-    const name = textOf(node,'Name') || ('Curve '+(newCurves.length+1));
-    const curveNumber = textOf(node,':scope > CurveNumber');
-    const amplitudeUnit = textOf(node,'AmplitudeUnit') || '';
-    const volumeUnit = textOf(node,'VolumeUnit') || '';
-    const timeUnit = textOf(node,'TimeUnit') || '';
-    const distBetween = parseFloat(textOf(node,'DistanceBetweenPoints'));
-    const distStart = parseFloat(textOf(node,'DistanceToStartPoint'));
-    const columnVolume = parseFloat(textOf(node,'ColumnVolume'));
-    const binName = node.querySelector('CurvePoints CurvePoint BinaryCurvePointsFileName');
-    const binFileName = binName ? binName.textContent.trim() : null;
-
-    if(!binFileName) continue;
-    const entry = fileMap[binFileName.toLowerCase()];
-    if(!entry) continue; // this curve's binary file wasn't in the drop
-
-    let decoded;
-    try{
-      decoded = decodeCurveFile(entry.data);
-    }catch(err){
-      console.warn('failed to decode', binFileName, err);
-      continue;
-    }
-    if(!decoded || !decoded.y || !decoded.y.length) continue;
-
-    let x = decoded.x;
-    let xUnit = decoded.xUnit;
-    if(!x){
-      // fall back to evenly spaced axis from metadata
-      const n = decoded.y.length;
-      x = new Float64Array(n);
-      const step = isFinite(distBetween) ? distBetween : 1;
-      const start = isFinite(distStart) ? distStart : 0;
-      for(let i=0;i<n;i++) x[i] = start + i*step;
-      xUnit = volumeUnit || timeUnit || '';
-    }
-
-    // try to match this curve's default styling to an equivalent curve from an earlier run,
-    // so overlaying a second run lines its matching channels up automatically. Otherwise,
-    // default only UV 280 nm on — everything else starts off until the person opts in.
-    const label = curveDisplayLabelRaw(name);
-    const match = state.curves.find(c => curveDisplayLabelRaw(c.name) === label && c.axis !== 'off');
+  // try to match this curve's default styling to an equivalent curve from an earlier run,
+  // so overlaying a second run lines its matching channels up automatically. Otherwise,
+  // default only UV 280 nm on — everything else starts off until the person opts in.
+  const newCurves = result.curves.map(c=>{
+    const label = PeakyParse.curveDisplayLabelRaw(c.name);
+    const match = state.curves.find(sc => PeakyParse.curveDisplayLabelRaw(sc.name) === label && sc.axis !== 'off');
     const isPrimaryChannel = label === 'UV 280 nm' || label === 'UV 260 nm';
     const isDefaultSelected = label === 'UV 280 nm';
     const axis = match ? match.axis : (isPrimaryChannel ? 'left' : 'off');
     const selected = match ? match.selected : isDefaultSelected;
     const color = COLORS[(runColorOffset + localColorIdx) % COLORS.length];
     localColorIdx++;
-
-    newCurves.push({
-      runId, name, curveNumber, x, y: decoded.y,
-      xUnit: xUnit || volumeUnit || timeUnit || '',
-      yUnit: amplitudeUnit,
-      columnVolume: isFinite(columnVolume) ? columnVolume : null,
-      color, axis, selected,
+    return Object.assign({}, c, {
+      runId, axis, selected, color,
       dashed: label === 'UV 260 nm', // UV260 renders as a dashed line matching UV280's color
-      label: curveDisplayLabelRaw(name), // editable legend text — defaults to the channel name
-      peaks: []
+      label // editable legend text — defaults to the channel name
     });
-  }
+  });
 
   // UV260 defaults to the same color as its sibling UV280 in this run (distinguished by dash instead)
   const uv280InRun = newCurves.find(c=>curveDisplayLabel(c)==='UV 280 nm');
@@ -546,54 +511,23 @@ function addRun(fileMap, uploadedFileLabel){
     newCurves.forEach(c=>{ if(c.dashed) c.color = uv280InRun.color; });
   }
 
-  // peak tables
-  const peakTables = Array.from(doc.querySelectorAll('PeakTables > PeakTable'));
-  for(const pt of peakTables){
-    const dcNode = pt.querySelector('DataCurve > CurveNumber');
-    const cn = dcNode ? dcNode.textContent.trim() : null;
-    const curve = newCurves.find(c=>c.curveNumber===cn);
-    if(!curve) continue;
-    // UNICORN reports peak retention relative to the injection point (not the raw
-    // recording start) whenever this tag is present — our curve's own x-data is
-    // always in raw/absolute coordinates, so we need to add the injection volume
-    // back on when positioning these peaks against the curve.
-    curve.peaksZeroAdjustedToInjection = pt.querySelector('ZeroAdjustedToInjectionNumber') !== null;
-    const peakNodes = Array.from(pt.querySelectorAll('Peaks > Peak'));
-    for(const pk of peakNodes){
-      const ret = parseFloat(textOf(pk,'MaxPeakRetention'));
-      const height = parseFloat(textOf(pk,'Height'));
-      const nm = textOf(pk,'Name') || '';
-      if(isFinite(ret)) curve.peaks.push({retention: ret, height: isFinite(height)?height:null, name: nm, hidden: false});
-    }
-  }
-
-  // events / fractions
-  const events = [];
-  const eventNodes = Array.from(doc.querySelectorAll('Events > Event'));
-  for(const ev of eventNodes){
-    const vol = parseFloat(textOf(ev,'EventVolume'));
-    const txt = textOf(ev,'EventText') || '';
-    if(isFinite(vol) && txt) events.push({volume: vol, text: txt});
-  }
-
-  if(!newCurves.length){
-    alert('Found the metadata, but none of the referenced curve files (e.g. Chrom.1_1_True) were in this drop.');
-    return;
-  }
-
   if(state.curves.length===0 && !newCurves.some(c=>c.selected)){
-    const def = pickDefaultUvCurve(newCurves) || newCurves[0];
+    const def = PeakyParse.pickDefaultUvCurve(newCurves) || newCurves[0];
     def.selected = true;
     def.axis = 'left';
   }
 
-  state.runs.push({id: runId, label: chromatogramName, xOffset: 0, events, injectionVolume: findInjectionVolume(events)});
+  state.runs.push({
+    id: runId, label: chromatogramName, xOffset: 0, events: result.events,
+    injectionVolume: result.injectionVolume,
+    columnName: result.resultInfo ? result.resultInfo.columnName : null
+  });
   state.curves.push(...newCurves);
 
   const first = state.runs.length===1;
   buildRunsList();
   buildCurveList();
-  ['curvesBlock','annotBlock','labelsBlock','axisRangeBlock','styleBlock','gelBlock','exportBlock'].forEach(id=>{
+  ['curvesBlock','annotBlock','mwBlock','labelsBlock','axisRangeBlock','styleBlock','gelBlock','exportBlock'].forEach(id=>{
     document.getElementById(id).style.display = 'block';
   });
   document.getElementById('dropzoneTitle').textContent = 'Drop another run to overlay';
@@ -617,53 +551,15 @@ function removeRun(runId){
   render();
 }
 
-function textOf(node, tag){
-  const el = node.querySelector(tag);
-  return el ? el.textContent.trim() : '';
-}
-
 function axisLabelFor(curve){
   const unit = document.getElementById('useCV') && document.getElementById('useCV').checked
     ? 'CV' : (curve.xUnit || '');
   return 'Volume ('+ (unit||'?') +')';
 }
 
-// Turns a curve name like "UV 1_280" into the conventional "UV 280 nm" label.
-// Finds the volume of the injection event, if present, so the trace can be
-// re-zeroed at the point sample actually enters the system.
-function findInjectionVolume(events){
-  const priorities = [
-    e => e.text === 'Injection valve Inject (Completed)',
-    e => /inject/i.test(e.text) && /completed/i.test(e.text) && !/load/i.test(e.text),
-    e => /inject/i.test(e.text) && !/load/i.test(e.text)
-  ];
-  for(const test of priorities){
-    const found = events.find(test);
-    if(found) return found.volume;
-  }
-  return null;
-}
-
-function curveDisplayLabelRaw(name){
-  const m = name.match(/^UV\s*\d+_(\d{2,4})$/i);
-  if(m) return 'UV ' + m[1] + ' nm';
-  return name;
-}
-function curveDisplayLabel(curve){ return curveDisplayLabelRaw(curve.name); }
-
-// Picks which curve should be shown by default when a file has no curve already
-// selected. Real absorbance channels are strongly preferred over whatever else the
-// export happens to list first (which can be an instrument diagnostic/system curve,
-// e.g. one with a name like "UV_CUT_TEMP@100,BASEM (1)" that isn't sample data at all).
-function pickDefaultUvCurve(curves){
-  let c = curves.find(c=>curveDisplayLabelRaw(c.name)==='UV 280 nm');
-  if(c) return c;
-  c = curves.find(c=>curveDisplayLabelRaw(c.name)==='UV 260 nm');
-  if(c) return c;
-  c = curves.find(c=>c.name.trim().toUpperCase()==='UV');
-  if(c) return c;
-  return null;
-}
+// Thin wrapper over the shared PeakyParse helper — kept so the rest of this file
+// can keep calling curveDisplayLabel(curve) without threading PeakyParse everywhere.
+function curveDisplayLabel(curve){ return PeakyParse.curveDisplayLabelRaw(curve.name); }
 
 function leftLabelDefault(){
   const leftCurves = state.curves.filter(c=>c.axis==='left' && c.selected);
@@ -681,76 +577,6 @@ function defaultTitle(){
   const run = first ? state.runs.find(r=>r.id===first.runId) : null;
   if(!first) return '';
   return (run?run.label:'') + (first ? ' \u2013 ' + curveDisplayLabel(first) : '');
-}
-
-// ---------- binary curve file decoding ----------
-
-function findAllSig(bytes){
-  const out = [];
-  const a=0x50,b=0x4b,c=0x03,d=0x04;
-  for(let i=0;i<=bytes.length-4;i++){
-    if(bytes[i]===a && bytes[i+1]===b && bytes[i+2]===c && bytes[i+3]===d) out.push(i);
-  }
-  return out;
-}
-
-function decodeCurveFile(bytes){
-  const offsets = findAllSig(bytes);
-  if(!offsets.length) throw new Error('not a recognised curve container');
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const entries = {};
-  for(let i=0;i<offsets.length;i++){
-    const pos = offsets[i];
-    const fnameLen = dv.getUint16(pos+26, true);
-    const extraLen = dv.getUint16(pos+28, true);
-    const name = new TextDecoder('utf-8').decode(bytes.slice(pos+30, pos+30+fnameLen));
-    const dataStart = pos+30+fnameLen+extraLen;
-    const dataEnd = (i+1<offsets.length) ? offsets[i+1] : bytes.length;
-    const chunk = bytes.slice(dataStart, dataEnd);
-    let inflated;
-    try{ inflated = pako.inflateRaw(chunk); }
-    catch(e){ continue; }
-    entries[name] = parseNRBF(inflated);
-  }
-
-  let yArr=null, yEntryName=null, xArr=null, xUnit=null;
-  for(const [name, val] of Object.entries(entries)){
-    if(!val || !val.arr) continue;
-    const lower = name.toLowerCase();
-    if(lower.includes('amplitude')) { yArr = val.arr; yEntryName = name; }
-    else if(lower.includes('volume')) { xArr = val.arr; xUnit = 'mL'; }
-    else if(lower.includes('time')) { if(!xArr){ xArr = val.arr; xUnit = 'min'; } }
-    else if(!yArr && !lower.includes('datatype')) { yArr = val.arr; }
-  }
-  if(!yArr) return null;
-  return {y: yArr, x: xArr, xUnit};
-}
-
-function parseNRBF(u8){
-  if(u8.length < 1) return null;
-  if(u8[0] !== 0) return {text: new TextDecoder('utf-8').decode(u8)};
-  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
-  let pos = 1 + 16;
-  if(pos >= u8.length) return null;
-  const recordType = u8[pos]; pos += 1;
-  if(recordType !== 15) return null; // only ArraySinglePrimitive supported
-  const length = dv.getInt32(pos+4, true);
-  const ptype = u8[pos+8];
-  const dataPos = pos+9;
-  let arr;
-  if(ptype === 11){ // Single (float32)
-    arr = new Float64Array(length);
-    for(let k=0;k<length;k++) arr[k] = dv.getFloat32(dataPos + k*4, true);
-  } else if(ptype === 6){ // Double
-    arr = new Float64Array(length);
-    for(let k=0;k<length;k++) arr[k] = dv.getFloat64(dataPos + k*8, true);
-  } else if(ptype === 8){ // Int32
-    arr = new Float64Array(length);
-    for(let k=0;k<length;k++) arr[k] = dv.getInt32(dataPos + k*4, true);
-  } else {
-    return null;
-  }
-  return {arr};
 }
 
 // ---------- runs & curve list UI ----------
@@ -1514,8 +1340,20 @@ function scheduleGelDragCommit(){
 
 // ---------- controls ----------
 
-['showPeaks','showFractions','useCV','showGrid','showLegend','zeroInjection','fractionSource','peakSource'].forEach(id=>{
+['showPeaks','showFractions','useCV','showGrid','showLegend','zeroInjection','fractionSource','peakSource','mwCalibration','mwOnPlot'].forEach(id=>{
   document.getElementById(id).addEventListener('change', render);
+});
+document.getElementById('peakAutoSensitivity').addEventListener('input', e=>{
+  document.getElementById('peakAutoSensVal').textContent = e.target.value;
+});
+document.getElementById('peakAutoDetect').addEventListener('click', ()=>{
+  const peakCurve = pickPeakDetectionCurve();
+  if(!peakCurve){ alert('Select a curve first (tick a curve in the Curves panel above).'); return; }
+  const sensitivity = parseFloat(document.getElementById('peakAutoSensitivity').value);
+  peakCurve.peaks = PeakyParse.detectPeaksForCurve(peakCurve.x, peakCurve.y, sensitivity);
+  peakCurve.peaksZeroAdjustedToInjection = false; // detected directly from raw x, not injection-relative
+  buildPeakSourceSelect();
+  render();
 });
 document.getElementById('lineWidth').addEventListener('input', e=>{
   document.getElementById('lwVal').textContent = e.target.value;
@@ -1532,6 +1370,157 @@ document.getElementById('sizePreset').addEventListener('change', e=>{
   document.getElementById('hMm').value = h;
   render();
 });
+
+// ---------- MW calibration ----------
+//
+// Calibrations are static data files fetched once at startup from calibrations/
+// (see calibrations/README.md) rather than bundled in this file, so a lab can add
+// its own column's calibration (built with calibrate.html) via a PR without
+// touching this app at all. Fit math itself lives in parser.js (shared with
+// calibrate.html); everything here is the app-state/DOM-facing wrapper over it.
+
+const MW_CALIBRATION_DIR = 'calibrations/';
+const MW_CALIBRATION_INDEX = MW_CALIBRATION_DIR + 'index.json';
+const MW_VT_MISMATCH_FRAC = 0.02; // warn if a run's own column volume differs from the calibration's by more than this fraction
+
+let mwCalibrations = [];
+let mwCalibrationsState = 'loading'; // 'loading' | 'ready' | 'error'
+let pendingMwCalibrationId = null; // set by importProjectFromHtml if it runs before the library is ready
+
+async function loadMwCalibrations(){
+  try{
+    const idxResp = await fetch(MW_CALIBRATION_INDEX + '?v=' + BUILD);
+    if(!idxResp.ok) throw new Error('manifest fetch failed: '+idxResp.status);
+    const idx = await idxResp.json();
+    const entries = (idx && idx.calibrations) || [];
+    const loaded = await Promise.all(entries.map(async entry=>{
+      try{
+        const resp = await fetch(MW_CALIBRATION_DIR + entry.file + '?v=' + BUILD);
+        if(!resp.ok) throw new Error('fetch failed: '+resp.status);
+        const cal = await resp.json();
+        cal.id = cal.id || entry.id;
+        cal.label = cal.label || entry.label;
+        return cal;
+      }catch(err){
+        console.warn('MW calibration "'+entry.id+'" failed to load, skipping', err);
+        return null;
+      }
+    }));
+    mwCalibrations = loaded.filter(Boolean);
+    mwCalibrationsState = 'ready';
+  }catch(err){
+    // Typically file:// (relative fetch() is blocked there) or a missing/renamed
+    // manifest — degrade gracefully rather than breaking the rest of the app.
+    console.warn('MW calibration library unavailable', err);
+    mwCalibrations = [];
+    mwCalibrationsState = 'error';
+  }
+  buildMwCalibrationSelect();
+  if(pendingMwCalibrationId!=null){
+    const select = document.getElementById('mwCalibration');
+    if(mwCalibrations.some(c=>c.id===pendingMwCalibrationId)) select.value = pendingMwCalibrationId;
+    pendingMwCalibrationId = null;
+  }
+  if(state.runs.length) render();
+}
+
+function buildMwCalibrationSelect(){
+  const select = document.getElementById('mwCalibration');
+  const prevValue = select.value;
+  if(mwCalibrationsState === 'error'){
+    select.innerHTML = '<option value="">— unavailable (open this app over http, not as a local file) —</option>';
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  select.innerHTML = '<option value="">— none —</option>' + mwCalibrations.map(c=>
+    '<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.label)+'</option>'
+  ).join('');
+  if(mwCalibrations.some(c=>c.id===prevValue)) select.value = prevValue;
+}
+
+function getMwCalibration(){
+  const id = document.getElementById('mwCalibration').value;
+  if(!id) return null;
+  return mwCalibrations.find(c=>c.id===id) || null;
+}
+
+// A peak's elution volume (mL), measured from the injection mark only — the one
+// quantity the calibration model actually needs. Deliberately excludes the
+// manual run "shift" offset and the useCV/zeroInjection display toggles (unlike
+// peakDisplayVolume, which folds those in for the on-screen volume label), so an
+// MW estimate can't silently change just because the figure's display settings
+// were adjusted for presentation.
+function peakCalibrationVe(peakCurve, pk){
+  const xUnit = (peakCurve.xUnit || 'mL').toLowerCase();
+  if(xUnit !== 'ml') return null; // time-based curves have no volume to calibrate against
+  const peakRun = state.runs.find(r=>r.id===peakCurve.runId);
+  if(peakCurve.peaksZeroAdjustedToInjection) return pk.retention;
+  if(peakRun && peakRun.injectionVolume!=null) return pk.retention - peakRun.injectionVolume;
+  return null; // no injection event on this run — can't establish an elution volume
+}
+
+// Single entry point used by both the SVG peak loop and the sidebar peak list,
+// so the two can never disagree about a peak's estimated MW.
+function peakMwEstimate(peakCurve, pk){
+  const cal = getMwCalibration();
+  if(!cal) return null;
+  const ve = peakCalibrationVe(peakCurve, pk);
+  if(ve==null) return null;
+  const vt = peakCurve.columnVolume;
+  return PeakyParse.estimateMW(ve, vt, cal);
+}
+
+function updateMwWarning(peakCurve){
+  const box = document.getElementById('mwWarning');
+  const cal = getMwCalibration();
+  if(!cal){ box.style.display = 'none'; box.textContent = ''; return; }
+  const messages = [];
+  const run = peakCurve ? state.runs.find(r=>r.id===peakCurve.runId) : null;
+  const runColumnVolume = peakCurve ? peakCurve.columnVolume : null;
+  if(cal.model === 'kav'){
+    if(run && run.columnName && cal.column && cal.column.name && run.columnName !== cal.column.name){
+      messages.push('This run was on "'+run.columnName+'", but the selected calibration is for "'+cal.column.name+'". MW estimates will be meaningless.');
+    } else if(runColumnVolume!=null && cal.column && isFinite(cal.column.vtMl) && Math.abs(runColumnVolume-cal.column.vtMl)/cal.column.vtMl > MW_VT_MISMATCH_FRAC){
+      messages.push('This run reports a column volume of '+runColumnVolume.toFixed(2)+' mL; the calibration was built at '+cal.column.vtMl.toFixed(2)+' mL.');
+    } else if(runColumnVolume==null && cal.column){
+      messages.push('No column volume in this export — falling back to the calibration’s '+cal.column.vtMl.toFixed(2)+' mL.');
+    }
+    if(peakCurve && run && run.injectionVolume==null){
+      messages.push('No injection event found on this run — MW cannot be estimated.');
+    }
+  } else if(cal.model === 've' && runColumnVolume!=null && cal.column && isFinite(cal.column.vtMl) && Math.abs(runColumnVolume-cal.column.vtMl)/cal.column.vtMl > MW_VT_MISMATCH_FRAC){
+    messages.push('This run reports a column volume of '+runColumnVolume.toFixed(2)+' mL; this digitized calibration assumes '+cal.column.vtMl.toFixed(2)+' mL.');
+  }
+  const anyExtrapolated = peakCurve && peakCurve.peaks.some(pk=>{
+    if(pk.hidden) return false;
+    const est = peakMwEstimate(peakCurve, pk);
+    return est && est.extrapolated;
+  });
+  if(anyExtrapolated) messages.push('Some peaks fall outside the calibrated range and are marked with "~…*".');
+  if(cal.provenance && cal.provenance.notes) messages.push(cal.provenance.notes);
+  if(messages.length){
+    box.textContent = messages.join(' ');
+    box.style.display = 'block';
+  } else {
+    box.textContent = '';
+    box.style.display = 'none';
+  }
+}
+
+function updateMwPanelInfo(){
+  const note = document.getElementById('mwFitNote');
+  const cal = getMwCalibration();
+  if(!cal){ note.textContent = ''; return; }
+  const fit = PeakyParse.calibrationFit(cal);
+  const nStd = (cal.standards||[]).length;
+  const parts = [nStd + (nStd===1?' standard':' standards')];
+  if(fit) parts.push('R² ' + fit.r2.toFixed(2));
+  if(cal.model === 'kav' && cal.void && isFinite(cal.void.v0Ml)) parts.push('V0 ' + cal.void.v0Ml.toFixed(2) + ' mL');
+  note.textContent = parts.join(' · ');
+}
+
+loadMwCalibrations();
 
 // ---------- decimation ----------
 
@@ -1576,6 +1565,36 @@ function fmtNum(v){
   return v.toFixed(3).replace(/0+$/,'').replace(/\.$/,'');
 }
 
+// Combines a run's manual "shift" offset with the automatic injection-point
+// zeroing (if enabled and an injection event was detected for that run). Top-level
+// (not just a buildSVG closure) so the peak list and the MW warning can compute
+// the same displayed volume the plot itself uses.
+function effectiveOffset(run){
+  let off = run ? (run.xOffset||0) : 0;
+  const zeroInjectionEl = document.getElementById('zeroInjection').checked;
+  if(zeroInjectionEl && run && run.injectionVolume!=null) off -= run.injectionVolume;
+  return off;
+}
+
+// The volume (and unit) a peak's marker is actually drawn at on the plot: raw
+// retention plus the injection-relative base correction (if the peak table stores
+// retentions relative to injection) plus this run's effective offset, further
+// divided into column volumes when the "X axis in CV" toggle is on. The peak list
+// mirrors this so the sidebar number always matches what's drawn on the
+// chromatogram, rather than showing the untouched raw retention from the file.
+function peakDisplayVolume(peakCurve, pk){
+  const peakRun = state.runs.find(r=>r.id===peakCurve.runId);
+  const peakBaseCorrection = (peakCurve.peaksZeroAdjustedToInjection && peakRun && peakRun.injectionVolume!=null)
+    ? peakRun.injectionVolume : 0;
+  const rawVe = pk.retention + peakBaseCorrection + effectiveOffset(peakRun);
+  const useCV = document.getElementById('useCV').checked;
+  const xConv = useCV && peakCurve.columnVolume ? peakCurve.columnVolume : null;
+  return {
+    value: xConv ? rawVe/xConv : rawVe,
+    unit: xConv ? 'CV' : (peakCurve.xUnit || 'mL')
+  };
+}
+
 // ---------- SVG rendering ----------
 
 function buildSVG(pxWidth, pxHeight, forExport){
@@ -1584,20 +1603,11 @@ function buildSVG(pxWidth, pxHeight, forExport){
   const showLegendEl = document.getElementById('showLegend').checked;
   const showPeaksEl = document.getElementById('showPeaks').checked;
   const showFractionsEl = document.getElementById('showFractions').checked;
-  const zeroInjectionEl = document.getElementById('zeroInjection').checked;
   const lw = parseFloat(document.getElementById('lineWidth').value);
   const title = document.getElementById('titleInput').value.trim();
   const leftLabel = document.getElementById('leftLabel').value.trim();
   const rightLabel = document.getElementById('rightLabel').value.trim();
   const xLabelManual = document.getElementById('xLabel').value.trim();
-
-  // Combines a run's manual "shift" offset with the automatic injection-point
-  // zeroing (if enabled and an injection event was detected for that run).
-  function effectiveOffset(run){
-    let off = run ? (run.xOffset||0) : 0;
-    if(zeroInjectionEl && run && run.injectionVolume!=null) off -= run.injectionVolume;
-    return off;
-  }
 
   const active = state.curves.filter(c=>c.selected && c.axis!=='off');
   const wMmForScale = parseFloat(document.getElementById('wMm').value) || (pxWidth/3.4);
@@ -1855,6 +1865,8 @@ function buildSVG(pxWidth, pxHeight, forExport){
   // which a fixed offset above the apex can't guarantee once curves aren't
   // monotonic (a shorter peak's label can otherwise land on a taller neighbor).
   if(showPeaksEl){
+    const mwCal = getMwCalibration();
+    const showMwOnPlot = !!(mwCal && document.getElementById('mwOnPlot').checked);
     let peakItems = [];
     peakCandidates().forEach(peakCurve=>{
       const sy = peakCurve.axis==='left'?syLeft:syRight;
@@ -1874,13 +1886,16 @@ function buildSVG(pxWidth, pxHeight, forExport){
         if(xConv) xv = xv/xConv;
         if(xv<xmin || xv>xmax) return;
         const apexY = pk.height!=null ? sy(pk.height) : marginT+10*scale;
-        peakItems.push({xv, apexY, color: peakCurve.color});
+        const mwEst = showMwOnPlot ? peakMwEstimate(peakCurve, pk) : null;
+        peakItems.push({xv, apexY, color: peakCurve.color, mwEst});
       });
     });
     peakItems.sort((a,b)=>a.xv-b.xv);
 
-    const labelRows = [marginT+12*scale, marginT+25*scale];
-    const minGapPx = 26*scale; // peaks closer than this on screen alternate label rows
+    // When MW sub-labels are on, each tier needs room for a second line of text.
+    const labelRowH = (showMwOnPlot ? 11 : 13) * scale;
+    const labelRows = [marginT+12*scale, marginT+12*scale+labelRowH*(showMwOnPlot?2:1)];
+    const minGapPx = (showMwOnPlot ? 30 : 26) * scale; // peaks closer than this on screen alternate label rows
     let lastX = -Infinity, tier = 0;
     svg += '<g>';
     peakItems.forEach(item=>{
@@ -1888,9 +1903,14 @@ function buildSVG(pxWidth, pxHeight, forExport){
       tier = (X - lastX < minGapPx) ? 1-tier : 0;
       lastX = X;
       const labelY = labelRows[tier];
-      svg += '<line x1="'+X+'" y1="'+(labelY+3*scale)+'" x2="'+X+'" y2="'+item.apexY+'" stroke="'+item.color+'" stroke-width="'+(0.7*scale)+'" stroke-dasharray="'+(1.5*scale)+','+(1.5*scale)+'"/>';
+      const lineStartY = item.mwEst ? (labelY+labelRowH+3*scale) : (labelY+3*scale);
+      svg += '<line x1="'+X+'" y1="'+lineStartY+'" x2="'+X+'" y2="'+item.apexY+'" stroke="'+item.color+'" stroke-width="'+(0.7*scale)+'" stroke-dasharray="'+(1.5*scale)+','+(1.5*scale)+'"/>';
       svg += '<circle cx="'+X+'" cy="'+item.apexY+'" r="'+(1.6*scale)+'" fill="'+item.color+'"/>';
       svg += '<text x="'+X+'" y="'+labelY+'" font-size="'+fs+'" fill="'+item.color+'" text-anchor="middle">'+fmtNum(item.xv)+'</text>';
+      if(item.mwEst){
+        const mwText = (item.mwEst.extrapolated?'~':'') + PeakyParse.fmtMW(item.mwEst.mw) + (item.mwEst.extrapolated?'*':'');
+        svg += '<text x="'+X+'" y="'+(labelY+labelRowH)+'" font-size="'+(fs*0.92)+'" font-style="italic" fill="'+item.color+'" text-anchor="middle">'+mwText+'</text>';
+      }
     });
     svg += '</g>';
   }
@@ -2131,20 +2151,49 @@ function buildPeakSourceSelect(){
   else select.value = peakCurveKey(candidates[0]);
 }
 
+// Picks which curve the "Auto-detect peaks" button acts on: whichever curve the
+// peak-source dropdown currently points at (if it's showing), else the one
+// visible curve, else the same UV-channel preference used when a run is loaded.
+function pickPeakDetectionCurve(){
+  const visible = state.curves.filter(c=>c.selected && c.axis!=='off');
+  if(!visible.length) return null;
+  const wrap = document.getElementById('peakSourceWrap');
+  const select = document.getElementById('peakSource');
+  if(wrap.style.display==='block' && select.value){
+    const chosen = state.curves.find(c=>peakCurveKey(c)===select.value);
+    if(chosen) return chosen;
+  }
+  if(visible.length===1) return visible[0];
+  return PeakyParse.pickDefaultUvCurve(visible) || visible[0];
+}
+
 function buildPeakList(){
   const wrap = document.getElementById('peakListWrap');
   const list = document.getElementById('peakList');
+  const autoWrap = document.getElementById('peakAutoWrap');
+  const showPeaksEl = document.getElementById('showPeaks').checked;
+  autoWrap.style.display = (showPeaksEl && state.curves.some(c=>c.selected && c.axis!=='off')) ? 'block' : 'none';
+
   const peakCurve = findPeakCurve();
   if(!peakCurve){
     wrap.style.display = 'none';
     list.innerHTML = '';
+    updateMwWarning(null);
+    updateMwPanelInfo();
     return;
   }
   wrap.style.display = 'block';
+  const mwCal = getMwCalibration();
   list.innerHTML = peakCurve.peaks.map((pk,i)=>{
-    const label = (pk.name ? pk.name+' · ' : '') + fmtNum(pk.retention) + ' ' + (peakCurve.xUnit||'mL');
+    const dv = peakDisplayVolume(peakCurve, pk);
+    let label = (pk.name ? pk.name+' · ' : '') + fmtNum(dv.value) + ' ' + dv.unit;
+    let extra = pk.auto ? '<sup class="peak-auto-tag">auto</sup>' : '';
+    if(mwCal && !pk.hidden){
+      const est = peakMwEstimate(peakCurve, pk);
+      if(est) extra += '<span class="peak-mw">'+(est.extrapolated?'~':'')+escapeHtml(PeakyParse.fmtMW(est.mw))+(est.extrapolated?'*':'')+'</span>';
+    }
     return '<div class="peak-row'+(pk.hidden?' is-hidden':'')+'">'+
-      '<span class="peak-label" title="'+escapeHtml(label)+'">'+escapeHtml(label)+'</span>'+
+      '<span class="peak-label" title="'+escapeHtml(label)+'">'+escapeHtml(label)+extra+'</span>'+
       '<button class="peak-toggle" data-i="'+i+'">'+(pk.hidden?'restore':'hide')+'</button>'+
     '</div>';
   }).join('');
@@ -2155,6 +2204,8 @@ function buildPeakList(){
       render();
     });
   });
+  updateMwWarning(peakCurve);
+  updateMwPanelInfo();
 }
 
 function render(){
@@ -2262,8 +2313,8 @@ function attachHover(svgEl, pxW, pxH, wMm, hMm, outW){
 // everything else (curve colors/labels, run offsets, gel crop/lane setup, etc.) already
 // lives on `state` and gets swept up automatically.
 const UI_VALUE_FIELDS = ['titleInput','leftLabel','rightLabel','xLabel','lineWidth','wMm','hMm',
-  'dpiSelect','xMin','xMax','yLeftMin','yLeftMax','yRightMin','yRightMax','sizePreset','peakSource'];
-const UI_CHECK_FIELDS = ['useCV','showGrid','showLegend','showPeaks','showFractions','zeroInjection'];
+  'dpiSelect','xMin','xMax','yLeftMin','yLeftMax','yRightMin','yRightMax','sizePreset','peakSource','mwCalibration'];
+const UI_CHECK_FIELDS = ['useCV','showGrid','showLegend','showPeaks','showFractions','zeroInjection','mwOnPlot'];
 
 function serializeAppState(){
   const ui = {};
@@ -2310,6 +2361,10 @@ function importProjectFromHtml(file){
     const ui = data.ui || {};
     UI_VALUE_FIELDS.forEach(id=>{ if(ui[id]!=null){ const el=document.getElementById(id); if(el) el.value = ui[id]; } });
     UI_CHECK_FIELDS.forEach(id=>{ if(ui[id]!=null){ const el=document.getElementById(id); if(el) el.checked = ui[id]; } });
+    // The mwCalibration <select> may not have its <option>s yet if the manifest
+    // fetch hasn't resolved — in that case the assignment above was a no-op, so
+    // stash the id and let loadMwCalibrations() apply it once the library is ready.
+    if(ui.mwCalibration && mwCalibrationsState !== 'ready') pendingMwCalibrationId = ui.mwCalibration;
     const lwVal = document.getElementById('lwVal');
     if(lwVal) lwVal.textContent = document.getElementById('lineWidth').value;
     const sensVal = document.getElementById('gelSensVal');
@@ -2337,7 +2392,7 @@ function importProjectFromHtml(file){
     document.getElementById('gelPanelWidth').value = state.gel.panelWidthMm;
 
     document.getElementById('dropzoneTitle').textContent = state.runs.length ? 'Drop another run to overlay' : 'Drop export here';
-    ['curvesBlock','annotBlock','labelsBlock','axisRangeBlock','styleBlock','gelBlock','exportBlock'].forEach(id=>{
+    ['curvesBlock','annotBlock','mwBlock','labelsBlock','axisRangeBlock','styleBlock','gelBlock','exportBlock'].forEach(id=>{
       document.getElementById(id).style.display = state.runs.length ? 'block' : 'none';
     });
 

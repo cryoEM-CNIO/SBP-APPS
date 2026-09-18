@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "sup6-increase-3-2-300",
+  "label": "Superose 6 Increase 3.2/300 (digitized)",
+  "model": "ve",
+  "column": { "name": "Superose 6 Increase 3.2/300", "vtMl": 2.4 },
+  "standards": [
+    { "name": "Thyroglobulin", "mw": 669000, "veMl": 1.42 },
+    { "name": "Ferritin", "mw": 440000, "veMl": 1.58 },
+    { "name": "Aldolase", "mw": 158000, "veMl": 1.77 },
+    { "name": "Carbonic anhydrase", "mw": 30000, "veMl": 1.96 },
+    { "name": "Aprotinin", "mw": 6500, "veMl": 2.12 }
+  ],
+  "provenance": {
+    "notes": "Only 5 standards across a very wide range (6.5 kDa–669 kDa) on a resin optimized for large complexes — the log-linear fit is noticeably worse here than for the other two columns and can be off by 30–50% near the ends of the range (thyroglobulin, aldolase). Digitized from published Cytiva chromatogram figures (pixel-position analysis), not a real lab-measured curve. Treat as order-of-magnitude only.",
+    "ported_from": "baseline_MW.html"
+  },
+  "fitSummary": {
+    "informationalOnly": true,
+    "slope": -2.9192,
+    "intercept": 10.1586,
+    "r2": 0.9596,
+    "veMin": 1.42,
+    "veMax": 2.12,
+    "nStandards": 5
+  }
+}
