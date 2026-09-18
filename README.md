@@ -122,3 +122,9 @@ each app's `<script>` block serves as the displayed version in the footer.
 - **Nothing stored server-side.** A reload clears all session data (unless the app explicitly uses `SBP.storage`).
 - **One file per app.** Keep apps self-contained in their `index.html`.
   Only add extra files if complexity genuinely demands it.
+
+---
+
+## License
+
+MIT © 2026 Structural Biology Programme, CNIO — see [LICENSE](LICENSE) for the full text.
