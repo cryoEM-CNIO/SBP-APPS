@@ -25,6 +25,27 @@ has been verified (see *Cache busting* below).
 
 ---
 
+
+## Drafts (staging previews)
+
+New apps land in `resources/drafts/` first for live testing before being
+published in the hub.
+
+**Two-PR workflow:**
+
+```
+PR 1 — draft
+  resources/drafts/<app-name>/index.html  (not in hub, accessible by URL)
+  Preview: https://cryoem-cnio.github.io/SBP-APPS/resources/drafts/<app-name>/
+
+PR 2 — promote (once happy)
+  resources/<app-name>/index.html         (moved out of drafts)
+  APPS[] entry added to root index.html   (now visible in hub)
+```
+
+Apps in `resources/drafts/` are live on GitHub Pages but intentionally
+unlisted — share the URL to test, nobody else will stumble on it.
+
 ## Adding an app
 
 1. **Copy** the `template/` folder and rename it (lowercase, no spaces — e.g. `particle-picker/`).
