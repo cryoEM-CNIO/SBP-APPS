@@ -6,6 +6,25 @@ Served at: **https://cryoem-cnio.github.io/SBP-APPS/**
 
 ---
 
+## Approval workflow
+
+**No one pushes directly to `main`.** The `main` branch is protected.
+Every change — whether made by a collaborator or by Claude — must go
+through a pull request that Rafa reviews and merges.
+
+Claude's steps for every change:
+
+1. Get the current HEAD SHA of `main`.
+2. Create a branch named `draft/YYYYMMDD-HHMM-<short-desc>`.
+3. Push all changed files to that branch (never to `main`).
+4. Open a pull request targeting `main` with a clear title and description.
+5. Print the PR URL and stop — do **not** declare the deploy done.
+
+A deploy is only live after Rafa merges the PR **and** the served file
+has been verified (see *Cache busting* below).
+
+---
+
 ## Adding an app
 
 1. **Copy** the `template/` folder and rename it (lowercase, no spaces — e.g. `particle-picker/`).
@@ -18,7 +37,7 @@ Served at: **https://cryoem-cnio.github.io/SBP-APPS/**
      path:"particle-picker/", icon:"◉", color:"#16A34A", live:true }
    ```
 4. **Bump** the `?v=` cache-buster on the `<link>` and `<script>` tags that you changed.
-5. **Commit and push** to `main` — GitHub Pages deploys automatically.
+5. **Open a PR** via the approval workflow above — do not push directly to `main`.
 
 ---
 
@@ -113,6 +132,9 @@ GitHub Pages caches assets. After any change to `shared/style.css` or
 tag that references them — typically `YYYYMMDD-HHMM`. The `BUILD` constant in
 each app's `<script>` block serves as the displayed version in the footer.
 
+After merging a PR, always fetch the live URL to confirm the new content
+is actually being served before declaring the deploy done.
+
 ---
 
 ## Principles
@@ -122,6 +144,7 @@ each app's `<script>` block serves as the displayed version in the footer.
 - **Nothing stored server-side.** A reload clears all session data (unless the app explicitly uses `SBP.storage`).
 - **One file per app.** Keep apps self-contained in their `index.html`.
   Only add extra files if complexity genuinely demands it.
+- **No direct pushes to `main`.** All changes go through a pull request (see *Approval workflow* above).
 
 ---
 
