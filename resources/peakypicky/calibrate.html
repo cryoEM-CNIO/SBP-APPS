@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeakyPicky — calibration builder</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23215E93'/><text y='72' x='50' text-anchor='middle' font-size='58' font-family='sans-serif' font-weight='700' fill='white'>P</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<script src="parser.js?v=20260918-1850"></script>
+<style>
+:root{
+  --paper:#0f1720;--panel:#16212e;--ink:#e8eef4;--ink-soft:#9fb0c0;
+  --line:#24323f;--line-soft:#1e2c38;
+  --accent1:#4ea1ff;--accent2:#e0a83a;--accent3:#3aa56a;--accent4:#a67fd4;
+  --inp:#0c141d;--btnink:#06101b;--sel:#2c4a6e;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono","IBM Plex Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,"Inter","Segoe UI",ui-sans-serif,system-ui,sans-serif;
+}
+body.light{
+  --paper:#eef1f5;--panel:#ffffff;--ink:#16202b;--ink-soft:#5d6b78;
+  --line:#d5dde5;--line-soft:#e5ebf2;
+  --accent1:#1667d6;--accent2:#9a6b00;--accent3:#177a4a;--accent4:#7a5aa0;
+  --inp:#ffffff;--btnink:#ffffff;--sel:#bcd8f5;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);min-height:100vh;}
+header{padding:11px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;background:var(--panel);}
+header h1{font-family:var(--mono);font-size:16px;font-weight:700;letter-spacing:.01em;margin:0;display:flex;}
+header h1 .b1{color:var(--ink);}
+header h1 .b2{color:var(--accent1);}
+header .divider{width:1px;align-self:stretch;background:var(--line);margin:0 2px;}
+header .tagline{font-size:12px;color:var(--ink-soft);font-family:var(--sans);}
+#thbtn{margin-left:auto;flex-shrink:0;background:none;border:1px solid var(--line);color:var(--ink-soft);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--sans);}
+#thbtn:hover{border-color:var(--accent1);color:var(--ink);}
+.wrap{max-width:680px;margin:0 auto;padding:24px 18px 60px;}
+section.block{margin-bottom:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+.block h2{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin:0 0 10px;display:flex;align-items:center;gap:6px;}
+.block h2::after{content:"";flex:1;height:1px;background:var(--line);}
+.dropzone{border:1.5px dashed var(--line);border-radius:6px;padding:18px 14px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;font-size:12px;color:var(--ink-soft);background:var(--inp);}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent1);background:var(--sel);}
+.dropzone strong{display:block;color:var(--ink);font-size:13px;margin-bottom:4px;}
+.dropzone input{display:none;}
+label.field{display:block;font-size:11px;font-family:var(--mono);color:var(--ink-soft);margin:10px 0 3px;}
+label.field:first-child{margin-top:0;}
+.field input[type=text],.field input[type=number],.field input[type=file],.field select,.field textarea{width:100%;font-family:var(--sans);font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--inp);color:var(--ink);}
+.toggle-line{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:4px 0;cursor:pointer;user-select:none;}
+.toggle-line input{accent-color:var(--accent1);cursor:pointer;}
+input[type=range]{accent-color:var(--accent1);}
+button.primary,button.secondary{font-family:var(--mono);font-size:11.5px;padding:9px 14px;border-radius:6px;cursor:pointer;letter-spacing:.03em;font-weight:600;}
+button.primary{background:var(--accent1);color:var(--btnink);border:none;}
+body.light button.primary{color:#fff;}
+button.primary:hover{opacity:.85;}
+button.secondary{background:var(--inp);color:var(--ink);border:1px solid var(--line);}
+button.btn-mini{font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:6px;cursor:pointer;background:var(--inp);color:var(--ink);border:1px solid var(--line);margin-top:8px;}
+button.btn-mini:hover{border-color:var(--accent1);}
+.empty-note{font-size:12px;color:var(--ink-soft);font-style:italic;}
+.run-offset-label{font-family:var(--mono);font-size:9.5px;color:var(--ink-soft);display:block;line-height:1.5;}
+.mw-note{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin:6px 0;}
+.mw-warning{display:none;margin:6px 0;padding:6px 8px;border-radius:4px;background:rgba(224,168,58,.12);border:1px solid var(--accent2);color:var(--accent2);font-family:var(--mono);font-size:10px;line-height:1.5;}
+.cal-run-card{border:1px solid var(--line-soft);border-radius:6px;padding:10px 12px;margin-bottom:10px;}
+.cal-run-card .run-header{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:12px;margin-bottom:4px;}
+.cal-run-card .run-remove{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:13px;}
+.cal-run-card .run-remove:hover{color:var(--accent2);}
+.cal-row{display:flex;align-items:center;gap:6px;padding:3px 0;}
+.cal-row input[type=text],.cal-row input[type=number]{font-family:var(--mono);font-size:10.5px;padding:3px 5px;border:1px solid var(--line);border-radius:4px;background:var(--inp);color:var(--ink);}
+.cal-row .cr-remove{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:13px;padding:0 4px;}
+.cal-row .cr-remove:hover{color:var(--accent2);}
+table.fit-table{width:100%;font-family:var(--mono);font-size:10.5px;border-collapse:collapse;margin:6px 0;}
+table.fit-table td{padding:3px 6px;border-bottom:1px solid var(--line-soft);}
+table.fit-table tr:first-child td{color:var(--ink-soft);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;}
+textarea{background:var(--inp);color:var(--ink);border:1px solid var(--line);border-radius:6px;font-family:var(--mono);font-size:11px;}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--ink-soft);text-decoration:none;flex-shrink:0;margin-right:6px;padding:3px 7px;border:1px solid var(--line);border-radius:5px;" title="Back to PeakyPicky">‹ PeakyPicky</a>
+  <h1><span class="b1">Calibration</span><span class="b2">Builder</span></h1>
+  <span class="divider"></span>
+  <span class="tagline">Turn a blue-dextran void run + standard-protein runs into a Kav-based MW calibration file</span>
+  <button id="thbtn" onclick="toggleTheme()">☀️ light</button>
+</header>
+
+<div class="wrap">
+
+  <p style="font-size:12.5px; color:var(--ink-soft); line-height:1.6;">
+    Drop three (or more) Cytiva/UNICORN export .zip files from a single column: one blue-dextran run to establish
+    the void volume, and one or more runs with proteins of known molecular weight. This page fits
+    <code>log10(MW) = intercept + slope·Kav</code>, <code>Kav = (Ve−V0)/(Vt−V0)</code>, and produces a calibration
+    JSON file that goes into <code>calibrations/</code> alongside this app — see <a href="calibrations/README.md" style="color:var(--accent1);">calibrations/README.md</a>.
+  </p>
+
+  <section class="block" id="step1">
+    <h2>1 · Void volume run</h2>
+    <div class="dropzone" id="voidDropzone">
+      <strong id="voidDropzoneTitle">Drop the blue-dextran run here</strong>
+      <span>a Cytiva/UNICORN export .zip — click to browse</span>
+      <input type="file" id="voidFileInput" accept=".zip">
+    </div>
+    <div id="voidInfo" style="display:none; margin-top:10px;">
+      <div id="voidMeta" class="mw-note"></div>
+      <label class="field">Detection sensitivity: <span id="voidSensVal">5</span></label>
+      <input type="range" id="voidSensitivity" min="1" max="10" step="1" value="5" style="width:100%;">
+      <div id="voidPeakList" style="margin-top:6px;"></div>
+    </div>
+  </section>
+
+  <section class="block" id="step2" style="display:none;">
+    <h2>2 · Standard runs</h2>
+    <div class="dropzone" id="stdDropzone">
+      <strong>Drop one or more standard-mix runs here</strong>
+      <span>filenames like <code style="font-family:var(--mono);">DATE_MW1Name1+MW2Name2_Column.zip</code> prefill MW guesses — click to browse</span>
+      <input type="file" id="stdFileInput" accept=".zip" multiple>
+    </div>
+    <div id="stdRunsList" style="margin-top:10px;"></div>
+  </section>
+
+  <section class="block" id="step3" style="display:none;">
+    <h2>3 · Metadata &amp; fit</h2>
+    <label class="field">Calibration id (used as the filename)
+      <input type="text" id="calId" placeholder="e.g. superdex75-10-300-gl-labname-2026-09">
+    </label>
+    <label class="field">Label (shown in the app's dropdown)
+      <input type="text" id="calLabel" placeholder="e.g. Superdex 75 10/300 GL — my lab, Sep 2026">
+    </label>
+    <label class="field">Column name
+      <input type="text" id="calColumnName">
+    </label>
+    <label class="field">Column volume, Vt (mL)
+      <input type="number" id="calVt" step="any">
+    </label>
+    <label class="field">Created by
+      <input type="text" id="calCreatedBy">
+    </label>
+    <label class="field">Notes (shown as a warning/caveat in the app)
+      <textarea id="calNotes" rows="2"></textarea>
+    </label>
+    <div id="fitSummaryBox" class="mw-note"></div>
+    <div id="fitWarnings" class="mw-warning"></div>
+    <div id="fitTableWrap"></div>
+    <div id="fitPlotWrap" style="margin-top:6px;"></div>
+  </section>
+
+  <section class="block" id="step4" style="display:none;">
+    <h2>4 · Output</h2>
+    <button class="primary" id="btnDownloadJson" type="button">Download calibration JSON</button>
+    <label class="field">Manifest entry — paste this into <code>calibrations/index.json</code>
+      <textarea id="manifestSnippet" rows="7" readonly></textarea>
+    </label>
+    <div class="run-offset-label">Save the downloaded file into <code>resources/peakypicky/calibrations/</code>, add the entry above to
+      <code>calibrations/index.json</code>, and open a PR per the repo's approval workflow (see the root README).</div>
+    <label class="field" style="margin-top:12px;">Load an existing calibration JSON, to edit or add more standards to it
+      <input type="file" id="loadCalInput" accept=".json">
+    </label>
+  </section>
+
+</div>
+
+<script>
+(function(){
+
+// ---------- small local helpers (not shared with index.html — presentational only) ----------
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmt3(v){ return isFinite(v) ? v.toFixed(3) : '?'; }
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+function wireDropzone(zoneId, inputId, onFiles){
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  ['dragenter','dragover'].forEach(evt=>zone.addEventListener(evt, e=>{e.preventDefault(); zone.classList.add('drag');}));
+  ['dragleave','drop'].forEach(evt=>zone.addEventListener(evt, e=>{e.preventDefault(); zone.classList.remove('drag');}));
+  zone.addEventListener('drop', e=>{ const files=Array.from(e.dataTransfer.files); if(files.length) onFiles(files); });
+  zone.addEventListener('click', ()=>input.click());
+  input.addEventListener('change', e=>{ const files=Array.from(e.target.files); if(files.length) onFiles(files); input.value=''; });
+}
+
+// Common Gel Filtration LMW/HMW calibration kit proteins, matched against the
+// filename token that follows each MW number (best-effort — falls back to the
+// raw token, which the user can always overwrite in the table below).
+const STANDARD_NAME_HINTS = {
+  ova:'Ovalbumin', conalb:'Conalbumin', rnasea:'Ribonuclease A', rnase:'Ribonuclease A',
+  chemo:'Chymotrypsinogen A', chymo:'Chymotrypsinogen A', bsa:'Bovine serum albumin',
+  aldolase:'Aldolase', carbonicanhydrase:'Carbonic anhydrase', thyroglobulin:'Thyroglobulin',
+  ferritin:'Ferritin', aprotinin:'Aprotinin', cytc:'Cytochrome C', cytochromec:'Cytochrome C',
+  vitaminb12:'Vitamin B12', b12:'Vitamin B12'
+};
+function resolveStandardName(hint){
+  const key = (hint||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  return STANDARD_NAME_HINTS[key] || hint || '';
+}
+
+// Parses "20260917_25656Chemo+44287Ova_S75" into [{mw:25656,nameHint:'Chemo'},{mw:44287,nameHint:'Ova'}].
+// Deliberately conservative: only the middle "DATE_<mix>_COLUMN" segment is read,
+// and any token without a leading 3-7 digit number is skipped (this is also how a
+// blue-dextran filename like "..._BlueDextran_..." naturally yields no standards).
+function parseFilenameStandards(nameStem){
+  const parts = nameStem.split('_');
+  if(parts.length < 2) return [];
+  const mixPart = parts[1];
+  return mixPart.split('+').map(tok=>{
+    const m = tok.match(/^(\d{3,7})\s*([A-Za-z][A-Za-z0-9._-]*)?$/);
+    if(!m) return null;
+    return {mw: parseInt(m[1],10), nameHint: m[2]||''};
+  }).filter(Boolean);
+}
+
+// ---------- state ----------
+
+let voidState = null; // {fileName, result, curve, sensitivity, candidates, selectedIdx, loadedV0}
+let stdRuns = [];      // [{fileName, result, curve, sensitivity, parsedTokens, candidates, rows}]
+let loadedCalBase = null; // an existing calibration JSON, loaded to extend rather than rebuild
+
+// ---------- step 1: void run ----------
+
+wireDropzone('voidDropzone', 'voidFileInput', files=>handleVoidFile(files[0]));
+
+async function handleVoidFile(file){
+  let fileMap, result;
+  try{
+    fileMap = await PeakyParse.readZipToFileMap(file);
+    result = PeakyParse.parseUnicornExport(fileMap);
+  }catch(err){
+    alert('Could not read that zip: '+err.message);
+    return;
+  }
+  if(!result.ok){ alert(result.error); return; }
+  const curve = PeakyParse.pickDefaultUvCurve(result.curves) || result.curves[0];
+  voidState = {
+    fileName: file.name.replace(/\.zip$/i,''), result, curve,
+    sensitivity: PeakyParse.DEFAULT_AUTO_SENSITIVITY, candidates: [], selectedIdx: null
+  };
+  document.getElementById('voidDropzoneTitle').textContent = 'Drop another void run to replace this one';
+  document.getElementById('voidSensitivity').value = voidState.sensitivity;
+  document.getElementById('voidSensVal').textContent = voidState.sensitivity;
+  runVoidDetection();
+  document.getElementById('voidInfo').style.display = 'block';
+  document.getElementById('step2').style.display = 'block';
+  prefillMetaFromResult(result);
+}
+
+function runVoidDetection(){
+  const raw = PeakyParse.detectPeaksForCurve(voidState.curve.x, voidState.curve.y, voidState.sensitivity);
+  const inj = voidState.result.injectionVolume;
+  const candidates = raw
+    .map(p=>({...p, ve: inj!=null ? p.retention-inj : p.retention}))
+    .filter(p=>p.ve > 0); // drop pre-injection artifacts, which are real in these exports
+  candidates.sort((a,b)=>b.height-a.height); // tallest first — a reasonable default guess, always user-confirmed
+  voidState.candidates = candidates;
+  voidState.selectedIdx = candidates.length ? 0 : null;
+  const info = voidState.result.resultInfo || {};
+  document.getElementById('voidMeta').textContent = voidState.fileName +
+    (info.columnName ? ' · '+info.columnName : '') +
+    (info.columnVolume!=null ? ' · Vt '+info.columnVolume.toFixed(3)+' mL' : '') +
+    (info.runStartDate ? ' · '+info.runStartDate : '');
+  renderVoidPeakList();
+  updateFitIfReady();
+}
+
+function renderVoidPeakList(){
+  const wrap = document.getElementById('voidPeakList');
+  if(!voidState.candidates.length){
+    wrap.innerHTML = '<div class="empty-note">No peaks detected — try raising the sensitivity.</div>';
+    return;
+  }
+  wrap.innerHTML = voidState.candidates.map((p,i)=>
+    '<label class="toggle-line"><input type="radio" name="voidPeak" data-i="'+i+'" '+(i===voidState.selectedIdx?'checked':'')+'> '+
+    'V0 = '+fmt3(p.ve)+' mL · height '+Math.round(p.height)+' · prominence '+Math.round(p.prominence)+'</label>'
+  ).join('');
+  wrap.querySelectorAll('input[name=voidPeak]').forEach(el=>el.addEventListener('change', e=>{
+    voidState.selectedIdx = +e.target.dataset.i;
+    updateFitIfReady();
+  }));
+}
+
+document.getElementById('voidSensitivity').addEventListener('input', e=>{
+  document.getElementById('voidSensVal').textContent = e.target.value;
+  if(!voidState) return;
+  voidState.sensitivity = +e.target.value;
+  runVoidDetection();
+});
+
+// ---------- step 2: standard runs ----------
+
+wireDropzone('stdDropzone', 'stdFileInput', async files=>{
+  for(const f of files) await handleStdFile(f);
+});
+
+async function handleStdFile(file){
+  let fileMap, result;
+  try{
+    fileMap = await PeakyParse.readZipToFileMap(file);
+    result = PeakyParse.parseUnicornExport(fileMap);
+  }catch(err){
+    alert(file.name+': could not read that zip — '+err.message);
+    return;
+  }
+  if(!result.ok){ alert(file.name+': '+result.error); return; }
+  const curve = PeakyParse.pickDefaultUvCurve(result.curves) || result.curves[0];
+  const fileName = file.name.replace(/\.zip$/i,'');
+  const run = {
+    fileName, result, curve, sensitivity: PeakyParse.DEFAULT_AUTO_SENSITIVITY,
+    parsedTokens: parseFilenameStandards(fileName), candidates: [], rows: []
+  };
+  autoAssignRows(run);
+  stdRuns.push(run);
+  renderStdRuns();
+  prefillMetaFromResult(result);
+  updateFitIfReady();
+}
+
+// Picks the N most prominent detected peaks (N = number of MW tokens parsed from
+// the filename), sorted by elution volume ascending, and pairs them against the
+// filename's MW values sorted descending — larger proteins elute first in size-
+// exclusion chromatography, regardless of which order the filename lists them in.
+function autoAssignRows(run){
+  const inj = run.result.injectionVolume;
+  const raw = PeakyParse.detectPeaksForCurve(run.curve.x, run.curve.y, run.sensitivity);
+  const candidates = raw
+    .map(p=>({...p, ve: inj!=null ? p.retention-inj : p.retention}))
+    .filter(p=>p.ve > 0);
+  run.candidates = candidates;
+  const n = run.parsedTokens.length;
+  if(!n){ run.rows = []; return; }
+  const topN = candidates.slice().sort((a,b)=>b.prominence-a.prominence).slice(0,n).sort((a,b)=>a.ve-b.ve);
+  const tokensDesc = run.parsedTokens.slice().sort((a,b)=>b.mw-a.mw);
+  run.rows = topN.map((p,i)=>({
+    use: true, veMl: p.ve, height: p.height,
+    name: tokensDesc[i] ? resolveStandardName(tokensDesc[i].nameHint) : '',
+    mw: tokensDesc[i] ? tokensDesc[i].mw : null
+  }));
+}
+
+function renderStdRuns(){
+  const wrap = document.getElementById('stdRunsList');
+  if(!stdRuns.length){ wrap.innerHTML = '<div class="empty-note">No standard runs added yet.</div>'; return; }
+  wrap.innerHTML = stdRuns.map((run,ri)=>{
+    const rows = run.rows.map((row,i)=>
+      '<div class="cal-row">'+
+        '<input type="checkbox" class="cr-use" data-run="'+ri+'" data-i="'+i+'" '+(row.use?'checked':'')+'>'+
+        '<input type="number" step="any" class="cr-ve" data-run="'+ri+'" data-i="'+i+'" value="'+row.veMl.toFixed(3)+'" style="width:70px;" title="elution volume, mL">'+
+        '<input type="text" class="cr-name" data-run="'+ri+'" data-i="'+i+'" value="'+escapeHtml(row.name)+'" placeholder="protein name" style="width:140px;">'+
+        '<input type="number" class="cr-mw" data-run="'+ri+'" data-i="'+i+'" value="'+(row.mw!=null?row.mw:'')+'" placeholder="MW (Da)" style="width:90px;">'+
+        '<button type="button" class="cr-remove" data-run="'+ri+'" data-i="'+i+'" title="remove row">×</button>'+
+      '</div>'
+    ).join('') || '<div class="empty-note" style="padding:4px 0;">No rows — use "+ add row" below and fill in Ve/MW manually.</div>';
+    const otherPeaks = run.candidates.map(p=>fmt3(p.ve)+' mL (h='+Math.round(p.height)+')').join(', ') || 'none';
+    return '<div class="cal-run-card">'+
+      '<div class="run-header"><span>'+escapeHtml(run.fileName)+'</span>'+
+        '<button type="button" class="run-remove" data-run="'+ri+'" title="remove run">✕</button></div>'+
+      '<div class="run-offset-label" style="margin-bottom:6px;">sensitivity <input type="range" class="cr-sens" data-run="'+ri+'" min="1" max="10" step="1" value="'+run.sensitivity+'" style="width:70px; vertical-align:middle;"> · all detected peaks: '+otherPeaks+'</div>'+
+      rows +
+      '<button type="button" class="btn-mini cr-addrow" data-run="'+ri+'">+ add row</button>'+
+    '</div>';
+  }).join('');
+}
+
+const stdRunsList = document.getElementById('stdRunsList');
+stdRunsList.addEventListener('click', e=>{
+  const t = e.target;
+  if(t.classList.contains('run-remove')){
+    stdRuns.splice(+t.dataset.run, 1);
+    renderStdRuns(); updateFitIfReady();
+  } else if(t.classList.contains('cr-remove')){
+    stdRuns[+t.dataset.run].rows.splice(+t.dataset.i, 1);
+    renderStdRuns(); updateFitIfReady();
+  } else if(t.classList.contains('cr-addrow')){
+    const run = stdRuns[+t.dataset.run];
+    run.rows.push({use:true, veMl: run.candidates.length ? run.candidates[0].ve : 0, height:null, name:'', mw:null});
+    renderStdRuns(); updateFitIfReady();
+  }
+});
+stdRunsList.addEventListener('change', e=>{
+  const t = e.target;
+  if(t.classList.contains('cr-use')){
+    stdRuns[+t.dataset.run].rows[+t.dataset.i].use = t.checked;
+    updateFitIfReady();
+  } else if(t.classList.contains('cr-sens')){
+    const run = stdRuns[+t.dataset.run];
+    run.sensitivity = +t.value;
+    autoAssignRows(run);
+    renderStdRuns();
+    updateFitIfReady();
+  }
+});
+stdRunsList.addEventListener('input', e=>{
+  const t = e.target;
+  const ri = t.dataset.run!=null ? +t.dataset.run : null;
+  const i = t.dataset.i!=null ? +t.dataset.i : null;
+  if(ri==null || i==null) return;
+  if(t.classList.contains('cr-ve')) stdRuns[ri].rows[i].veMl = parseFloat(t.value);
+  else if(t.classList.contains('cr-name')) stdRuns[ri].rows[i].name = t.value;
+  else if(t.classList.contains('cr-mw')) stdRuns[ri].rows[i].mw = parseFloat(t.value);
+  else return;
+  updateFitIfReady();
+});
+
+// ---------- step 3: metadata + live fit ----------
+
+function prefillMetaFromResult(result){
+  const info = result.resultInfo || {};
+  const idEl = document.getElementById('calId'), labelEl = document.getElementById('calLabel'),
+    colEl = document.getElementById('calColumnName'), vtEl = document.getElementById('calVt');
+  if(!colEl.value && info.columnName) colEl.value = info.columnName;
+  if(!vtEl.value && info.columnVolume!=null) vtEl.value = info.columnVolume;
+  if(!labelEl.value && info.columnName) labelEl.value = info.columnName;
+  if(!idEl.value && info.columnName){
+    const slug = info.columnName.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    const today = new Date();
+    idEl.value = slug + '-' + today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0');
+  }
+}
+
+['calId','calLabel','calColumnName','calVt','calCreatedBy','calNotes'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', updateFitIfReady);
+});
+
+function computeCalibrationObject(){
+  const voidObj = (voidState && voidState.candidates.length && voidState.selectedIdx!=null)
+    ? {
+        v0Ml: +voidState.candidates[voidState.selectedIdx].ve.toFixed(4),
+        marker: 'Blue dextran 2000',
+        sourceRun: voidState.fileName,
+        runDate: (voidState.result.resultInfo && voidState.result.resultInfo.runStartDate) || null
+      }
+    : (loadedCalBase && loadedCalBase.void) || null;
+  if(!voidObj) return null;
+
+  const vtMl = parseFloat(document.getElementById('calVt').value);
+  if(!isFinite(vtMl)) return null;
+
+  const newStandards = [];
+  stdRuns.forEach(run=>{
+    run.rows.forEach(row=>{
+      if(!row.use || !isFinite(row.veMl) || !row.mw || !isFinite(row.mw)) return;
+      newStandards.push({
+        name: row.name || ('MW '+row.mw), mw: row.mw, veMl: +row.veMl.toFixed(4),
+        sourceRun: run.fileName, runDate: (run.result.resultInfo && run.result.resultInfo.runStartDate) || null
+      });
+    });
+  });
+  const standards = ((loadedCalBase && loadedCalBase.standards) || []).concat(newStandards);
+  if(standards.length < 2) return null;
+
+  const columnName = document.getElementById('calColumnName').value.trim()
+    || (loadedCalBase && loadedCalBase.column && loadedCalBase.column.name) || '';
+
+  return {
+    schemaVersion: 1,
+    id: document.getElementById('calId').value.trim() || 'untitled-calibration',
+    label: document.getElementById('calLabel').value.trim() || columnName || 'Untitled calibration',
+    model: 'kav',
+    column: { name: columnName, vtMl },
+    veReference: 'injection',
+    void: voidObj,
+    standards,
+    provenance: {
+      createdBy: document.getElementById('calCreatedBy').value.trim() || null,
+      createdAt: new Date().toISOString().slice(0,10),
+      tool: 'peakypicky/calibrate.html',
+      notes: document.getElementById('calNotes').value.trim() || null
+    }
+  };
+}
+
+function updateFitIfReady(){
+  const step3 = document.getElementById('step3'), step4 = document.getElementById('step4');
+  const cal = computeCalibrationObject();
+  if(!cal){
+    step3.style.display = voidState ? 'block' : 'none';
+    document.getElementById('fitSummaryBox').textContent = 'Pick a void peak above, then add at least 2 standards with a Ve and MW.';
+    document.getElementById('fitWarnings').style.display = 'none';
+    document.getElementById('fitTableWrap').innerHTML = '';
+    document.getElementById('fitPlotWrap').innerHTML = '';
+    step4.style.display = 'none';
+    return;
+  }
+  step3.style.display = 'block';
+  const fit = PeakyParse.calibrationFit(cal);
+  renderFitPanel(cal, fit);
+  if(fit){
+    step4.style.display = 'block';
+    renderOutput(cal);
+  } else {
+    step4.style.display = 'none';
+  }
+}
+
+function renderFitPanel(cal, fit){
+  const box = document.getElementById('fitSummaryBox');
+  const warnBox = document.getElementById('fitWarnings');
+  const tableWrap = document.getElementById('fitTableWrap');
+  const plotWrap = document.getElementById('fitPlotWrap');
+  if(!fit){
+    box.textContent = 'Could not fit a line through these standards.';
+    warnBox.style.display = 'none'; tableWrap.innerHTML = ''; plotWrap.innerHTML = '';
+    return;
+  }
+  box.textContent = cal.standards.length + (cal.standards.length===1?' standard':' standards') +
+    ' · slope ' + fit.slope.toFixed(4) + ' · intercept ' + fit.intercept.toFixed(4) +
+    ' · R² ' + fit.r2.toFixed(4) + ' · Kav ' + fit.xMin.toFixed(4) + '–' + fit.xMax.toFixed(4);
+
+  const warnings = [];
+  if(cal.standards.length < 3) warnings.push('Fewer than 3 standards — the fit is not well constrained.');
+  const kavs = cal.standards.map(s=>PeakyParse.kav(s.veMl, cal.void.v0Ml, cal.column.vtMl));
+  if(kavs.some(k=>k==null || k<0 || k>1)) warnings.push('At least one standard’s Kav falls outside 0–1 — check the void volume, column volume, and Ve values.');
+  const seen = new Set();
+  cal.standards.forEach(s=>{ if(seen.has(s.mw)) warnings.push('Duplicate MW value '+s.mw+' Da among standards.'); seen.add(s.mw); });
+  const vts = stdRuns.map(r=>r.result.resultInfo && r.result.resultInfo.columnVolume).filter(v=>v!=null);
+  if(vts.some(v=>Math.abs(v-cal.column.vtMl) > 0.05)) warnings.push('The column volume entered above doesn’t match what one of the dropped runs itself reported.');
+  if(warnings.length){ warnBox.innerHTML = warnings.map(escapeHtml).join('<br>'); warnBox.style.display = 'block'; }
+  else { warnBox.innerHTML = ''; warnBox.style.display = 'none'; }
+
+  tableWrap.innerHTML = '<table class="fit-table"><tr><td>standard</td><td>MW (Da)</td><td>Ve (mL)</td><td>Kav</td><td>fitted MW</td><td>error</td></tr>' +
+    cal.standards.map((s,i)=>{
+      const k = kavs[i];
+      if(k==null) return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+s.mw+'</td><td>'+s.veMl.toFixed(3)+'</td><td colspan="3">invalid Kav</td></tr>';
+      const fitted = Math.pow(10, fit.intercept + fit.slope*k);
+      const err = (fitted - s.mw) / s.mw * 100;
+      return '<tr><td>'+escapeHtml(s.name)+'</td><td>'+s.mw+'</td><td>'+s.veMl.toFixed(3)+'</td><td>'+k.toFixed(4)+'</td><td>'+Math.round(fitted)+'</td><td>'+(err>=0?'+':'')+err.toFixed(1)+'%</td></tr>';
+    }).join('') + '</table>';
+
+  plotWrap.innerHTML = buildFitPlotSVG(cal, fit, kavs);
+}
+
+function buildFitPlotSVG(cal, fit, kavs){
+  const W=320, H=200, ml=42, mr=10, mt=14, mb=26;
+  const logs = cal.standards.map(s=>Math.log10(s.mw));
+  const xmin = Math.min(0, Math.min(...kavs)) - 0.03, xmax = Math.max(1, Math.max(...kavs)) + 0.03;
+  const ymin = Math.min(...logs) - 0.2, ymax = Math.max(...logs) + 0.2;
+  const sx = v => ml + (v-xmin)/(xmax-xmin)*(W-ml-mr);
+  const sy = v => H-mb - (v-ymin)/(ymax-ymin)*(H-mt-mb);
+  let svg = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:340px; display:block; background:var(--inp); border:1px solid var(--line); border-radius:6px;">';
+  svg += '<line x1="'+ml+'" y1="'+(H-mb)+'" x2="'+(W-mr)+'" y2="'+(H-mb)+'" stroke="#3a4a58" stroke-width="1"/>';
+  svg += '<line x1="'+ml+'" y1="'+mt+'" x2="'+ml+'" y2="'+(H-mb)+'" stroke="#3a4a58" stroke-width="1"/>';
+  svg += '<line x1="'+sx(xmin)+'" y1="'+sy(fit.intercept+fit.slope*xmin)+'" x2="'+sx(xmax)+'" y2="'+sy(fit.intercept+fit.slope*xmax)+'" stroke="#4ea1ff" stroke-width="1.4"/>';
+  cal.standards.forEach((s,i)=>{
+    if(kavs[i]==null) return;
+    svg += '<circle cx="'+sx(kavs[i])+'" cy="'+sy(Math.log10(s.mw))+'" r="3.2" fill="#e0a83a"/>';
+  });
+  svg += '<text x="'+(ml+(W-ml-mr)/2)+'" y="'+(H-6)+'" font-size="9" fill="#9fb0c0" text-anchor="middle" font-family="monospace">Kav</text>';
+  svg += '<text x="4" y="'+(mt-2)+'" font-size="9" fill="#9fb0c0" font-family="monospace">log₁₀(MW)</text>';
+  svg += '</svg>';
+  return svg;
+}
+
+function renderOutput(cal){
+  const snippet = {
+    id: cal.id, label: cal.label, file: cal.id+'.json', model: cal.model,
+    columnName: cal.column.name, date: cal.provenance.createdAt
+  };
+  document.getElementById('manifestSnippet').value = JSON.stringify(snippet, null, 2) + ',';
+  document.getElementById('btnDownloadJson').onclick = ()=>{
+    const blob = new Blob([JSON.stringify(cal, null, 2)], {type:'application/json'});
+    downloadBlob(blob, cal.id+'.json');
+  };
+}
+
+// ---------- load an existing calibration to extend ----------
+
+document.getElementById('loadCalInput').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let cal;
+    try{ cal = JSON.parse(reader.result); }
+    catch(err){ alert('Could not read that as a calibration JSON.'); return; }
+    if(cal.model !== 'kav'){ alert('This builder only extends "kav" calibrations (real, lab-measured). "ve" (digitized) calibrations aren’t built here.'); return; }
+    loadedCalBase = cal;
+    document.getElementById('calId').value = cal.id || '';
+    document.getElementById('calLabel').value = cal.label || '';
+    document.getElementById('calColumnName').value = (cal.column && cal.column.name) || '';
+    document.getElementById('calVt').value = (cal.column && cal.column.vtMl) || '';
+    document.getElementById('calCreatedBy').value = (cal.provenance && cal.provenance.createdBy) || '';
+    document.getElementById('calNotes').value = (cal.provenance && cal.provenance.notes) || '';
+    alert('Loaded '+((cal.standards||[]).length)+' existing standard(s) and its void volume ('+(cal.void?cal.void.v0Ml:'?')+' mL) from that file.\n\nDrop new standard runs above to add more, then download the updated JSON. Drop a new blue-dextran run in step 1 only if you want to re-measure the void volume.');
+    updateFitIfReady();
+  };
+  reader.readAsText(file);
+});
+
+})();
+
+// ─── Theme toggle (same key as the main viewer, so the preference matches) ──
+function toggleTheme(){
+  const light=document.body.classList.toggle('light');
+  document.getElementById('thbtn').textContent=light?'🌙 dark':'☀️ light';
+  try{localStorage.setItem('pp_theme',light?'light':'dark');}catch(e){}
+}
+try{
+  if(localStorage.getItem('pp_theme')==='light'){
+    document.body.classList.add('light');
+    const b=document.getElementById('thbtn');
+    if(b)b.textContent='🌙 dark';
+  }
+}catch(e){}
+</script>
+</body>
+</html>
