@@ -6,7 +6,7 @@
 
 /* ── Tokens ───────────────────────────────────────────────────────────────── */
 :root {
-  --bg:#F7F6F3; --surface:#FFFFFF; --surface2:#F0EEE9;
+  --bg:#FFB6C1; --surface:#FFFFFF; --surface2:#F0EEE9;
   --border:#E2DED6; --border-strong:#C8C3BA;
   --text:#1A1916; --text-2:#6B6760; --text-3:#9B9690;
   --accent:#2563EB; --accent-bg:#EFF4FF; --accent-border:#BFCFFF;
@@ -16,7 +16,7 @@
   --r:8px; --rs:5px;
 }
 @media(prefers-color-scheme:dark) { :root {
-  --bg:#141412; --surface:#1E1D1A; --surface2:#252320;
+  --bg:#7D1535; --surface:#1E1D1A; --surface2:#252320;
   --border:#2E2C28; --border-strong:#3E3B36;
   --text:#F0EDE8; --text-2:#A09C94; --text-3:#6B6760;
   --accent:#4F83F7; --accent-bg:#0F1E3D; --accent-border:#1E3A7A;
