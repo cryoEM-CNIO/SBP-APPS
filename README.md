@@ -10,7 +10,7 @@ Served at: **https://cryoem-cnio.github.io/SBP-APPS/**
 
 **No one pushes directly to `main`.** The `main` branch is protected.
 Every change — whether made by a collaborator or by Claude — must go
-through a pull request that Rafa reviews and merges.
+through a pull request that an admin reviews and merges.
 
 Claude's steps for every change:
 
@@ -20,45 +20,39 @@ Claude's steps for every change:
 4. Open a pull request targeting `main` with a clear title and description.
 5. Print the PR URL and stop — do **not** declare the deploy done.
 
-A deploy is only live after Rafa merges the PR **and** the served file
-has been verified (see *Cache busting* below).
+A deploy is only live after an admin merges the PR **and** the served file
+has been verified in the browser (see *Cache busting* below).
 
 ---
 
+## App preview workflow
 
-## Drafts (staging previews)
+For any new app or modification to an existing app, Claude always previews
+the result as an artifact in the chat **before** pushing anything to GitHub.
+Only after explicit approval does it open a PR.
 
-New apps land in `resources/drafts/` first for live testing before being
-published in the hub.
-
-**Two-PR workflow:**
-
-```
-PR 1 — draft
-  resources/drafts/<app-name>/index.html  (not in hub, accessible by URL)
-  Preview: https://cryoem-cnio.github.io/SBP-APPS/resources/drafts/<app-name>/
-
-PR 2 — promote (once happy)
-  resources/<app-name>/index.html         (moved out of drafts)
-  APPS[] entry added to root index.html   (now visible in hub)
-```
-
-Apps in `resources/drafts/` are live on GitHub Pages but intentionally
-unlisted — share the URL to test, nobody else will stumble on it.
+---
 
 ## Adding an app
 
-1. **Copy** the `template/` folder and rename it (lowercase, no spaces — e.g. `particle-picker/`).
-2. **Edit** `template/index.html`:
-   - Change `<title>`, the favicon letter/colour, `APP_ID`, `APP_TITLE`, and `BUILD`.
-   - Write your app logic in the `<script>` block.
-3. **Register** it in the root `index.html` — add a row to the `APPS` array:
+1. Copy `resources/template/index.html` into `resources/<app-name>/index.html`.
+2. Edit the title, favicon letter/colour, `APP_ID`, `APP_TITLE`, and `BUILD`.
+3. Preview as an artifact in chat — get approval.
+4. Open a PR that includes both the new app file and a new row in `APPS[]`
+   in root `index.html`:
    ```js
-   { id:"particle-picker", name:"Particle Picker", desc:"Review and filter particles from a STAR file",
-     path:"particle-picker/", icon:"◉", color:"#16A34A", live:true }
+   { id:"<app-name>", name:"…", desc:"…",
+     path:"resources/<app-name>/", icon:"◆", color:"#2563EB", live:true }
    ```
-4. **Bump** the `?v=` cache-buster on the `<link>` and `<script>` tags that you changed.
-5. **Open a PR** via the approval workflow above — do not push directly to `main`.
+5. Bump `?v=` on the shared-asset links in root `index.html` too.
+
+---
+
+## Modifying an existing app
+
+1. Fetch `resources/<app-name>/index.html` from the repo.
+2. Apply the change and preview as an artifact in chat — get approval.
+3. Open a PR with the modified file.
 
 ---
 
@@ -66,23 +60,26 @@ unlisted — share the URL to test, nobody else will stumble on it.
 
 ```
 SBP-APPS/
-├── .nojekyll            ← prevents GitHub Pages from running Jekyll
-├── index.html           ← hub: lists all apps; edit APPS[] to add entries
-├── shared/
-│   ├── style.css        ← design tokens + all component styles
-│   └── utils.js         ← file reading, CSV parsing, DOM helpers
-└── <app-name>/
-    └── index.html       ← self-contained; loads its own data per session
+├── .nojekyll                    ← prevents GitHub Pages from running Jekyll
+├── index.html                   ← hub: lists all apps; edit APPS[] to add entries
+└── resources/
+    ├── shared/
+    │   ├── style.css            ← design tokens + all component styles
+    │   └── utils.js             ← file reading, CSV parsing, DOM helpers
+    ├── template/
+    │   └── index.html           ← starting point for new apps
+    └── <app-name>/
+        └── index.html           ← self-contained; loads its own data per session
 ```
 
-Apps live in their own folder. Each one is a single `index.html` — add
-subfolders or more files only if the app really needs them.
+Shared assets use root-relative paths so they work from any depth:
+
+    /SBP-APPS/resources/shared/style.css
+    /SBP-APPS/resources/shared/utils.js
 
 ---
 
 ## Design system
-
-Apps link to `../shared/style.css`. Useful classes:
 
 | Class | What it does |
 |---|---|
@@ -109,8 +106,6 @@ in `:root`. Light and dark mode are handled automatically via
 
 ## Shared utilities (`SBP.*`)
 
-Load with `<script src="../shared/utils.js?v=…"></script>`.
-
 ```js
 // File reading
 const text = await SBP.readFile(file);            // File → string
@@ -119,7 +114,6 @@ const b64  = await SBP.readFileAsBase64(file);    // File → data URL
 // Parsing
 const rows = SBP.parseCSV(text);                  // → [{col: val}]
 const rows = SBP.parseTSV(text);                  // TSV variant
-const rows = SBP.parseCSV(text, {header:false});  // → [[val, val]]
 
 // Downloads
 SBP.downloadText("out.txt", text);
@@ -139,9 +133,9 @@ store.get();   // → { zoom: 1.5 }
 store.del();
 
 // Misc
-SBP.esc(str)    // HTML-escape a string
-SBP.today()     // "YYYY-MM-DD"
-SBP.fd("2026-09-16")  // → "16/09"
+SBP.esc(str)              // HTML-escape a string
+SBP.today()               // "YYYY-MM-DD"
+SBP.fd("2026-09-16")      // → "16/09"
 ```
 
 ---
@@ -150,22 +144,22 @@ SBP.fd("2026-09-16")  // → "16/09"
 
 GitHub Pages caches assets. After any change to `shared/style.css` or
 `shared/utils.js`, bump the `?v=` query string on every `<link>` and `<script>`
-tag that references them — typically `YYYYMMDD-HHMM`. The `BUILD` constant in
+tag that references them — format `YYYYMMDD-HHMM`. The `BUILD` constant in
 each app's `<script>` block serves as the displayed version in the footer.
 
-After merging a PR, always fetch the live URL to confirm the new content
-is actually being served before declaring the deploy done.
+After merging a PR, an admin must confirm the live URL in the browser before
+the deploy is considered done.
 
 ---
 
 ## Principles
 
 - **No backend.** Apps are static HTML. Data loads from files or public URLs at runtime.
-- **No credentials in the repo.** If an app needs a token, the user enters it and it stays in their browser (`localStorage`).
+- **No credentials in the repo.** The repo is public — anything committed is public.
 - **Nothing stored server-side.** A reload clears all session data (unless the app explicitly uses `SBP.storage`).
 - **One file per app.** Keep apps self-contained in their `index.html`.
-  Only add extra files if complexity genuinely demands it.
-- **No direct pushes to `main`.** All changes go through a pull request (see *Approval workflow* above).
+- **No direct pushes to `main`.** All changes go through a pull request.
+- **Artifact preview before push.** Apps are always previewed in the chat and approved before anything is pushed to GitHub.
 
 ---
 
